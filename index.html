@@ -2002,6 +2002,766 @@ body.sgp-boot #app{
   height:1px;
 }
 
+
+/* v81 - relatório mais compacto, carimbo geral e ficha fotográfica completa */
+.relatorio-patrimonial-v74 .rp-printed,
+.sgp-report .rp-printed,
+.relatorio-foto-v81 .rp-printed{
+  margin-top:12px;
+  padding-top:7px;
+  border-top:1px solid #dbe8ed;
+  color:#7b8d9a;
+  font-size:10px;
+  text-align:right;
+  font-weight:700;
+}
+.relatorio-foto-v81{
+  color:var(--texto);
+  background:#fff;
+}
+.relatorio-foto-v81 .rf-header{
+  display:grid;
+  grid-template-columns:1fr 120px;
+  gap:18px;
+  border-bottom:3px solid #159447;
+  padding-bottom:14px;
+  margin-bottom:16px;
+}
+.relatorio-foto-v81 .rf-gov{
+  font-size:12px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-weight:900;
+  color:#087a32;
+}
+.relatorio-foto-v81 h1{
+  margin:4px 0 8px;
+  font-size:30px;
+  color:var(--texto);
+}
+.relatorio-foto-v81 .rf-meta{
+  color:#36556e;
+  font-weight:800;
+  margin:0;
+}
+.relatorio-foto-v81 .rf-logo{
+  text-align:right;
+}
+.relatorio-foto-v81 .rf-logo img{
+  width:112px;
+  max-width:112px;
+  height:auto;
+}
+.relatorio-foto-v81 .rf-grid{
+  display:grid;
+  grid-template-columns:220px 1fr;
+  gap:18px;
+  align-items:start;
+}
+.relatorio-foto-v81 .rf-photo{
+  width:220px;
+  height:180px;
+  border-radius:16px;
+  border:1px solid var(--linha);
+  background:#eef8f6;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  font-size:46px;
+}
+.relatorio-foto-v81 .rf-photo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.relatorio-foto-v81 .rf-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:12px;
+}
+.relatorio-foto-v81 .rf-table th,
+.relatorio-foto-v81 .rf-table td{
+  border-bottom:1px solid #e1edf0;
+  padding:8px 9px;
+  text-align:left;
+  vertical-align:top;
+}
+.relatorio-foto-v81 .rf-table th{
+  width:220px;
+  background:#eaf7f5;
+  color:#0b3a55;
+  text-transform:uppercase;
+  font-size:10.5px;
+}
+.relatorio-foto-v81 .rf-obs{
+  margin-top:18px;
+}
+.relatorio-foto-v81 .rf-obs-box{
+  min-height:90px;
+  border:1px solid #b8ccd4;
+  border-radius:14px;
+  padding:12px;
+  background:#fff;
+  outline:none;
+  white-space:pre-wrap;
+}
+.relatorio-foto-v81 .rf-obs-box:empty:before{
+  content:"Clique aqui para inserir observações, se necessário.";
+  color:#8aa0ae;
+  font-weight:600;
+}
+.relatorio-foto-v81 .foto-page{
+  page-break-after:always;
+  break-after:page;
+}
+.relatorio-foto-v81 .foto-page:last-child{
+  page-break-after:auto;
+  break-after:auto;
+}
+
+/* compactar o relatório mensal patrimonial para o bloco de bens caber melhor na primeira página */
+.relatorio-patrimonial-v74.compacto-v81 .rp-header{
+  padding-bottom:12px;
+  margin-bottom:12px;
+}
+.relatorio-patrimonial-v74.compacto-v81 h1{
+  font-size:28px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-sub,
+.relatorio-patrimonial-v74.compacto-v81 .rp-meta{
+  margin-bottom:5px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-cards{
+  gap:10px;
+  margin:12px 0;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-card{
+  padding:10px 12px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-card span{
+  margin-bottom:6px;
+  font-size:10px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-card strong{
+  font-size:17px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-detail{
+  padding:12px 14px;
+  margin:12px 0;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-detail h2{
+  font-size:20px;
+  margin-bottom:4px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-overline{
+  margin-bottom:8px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-row{
+  padding:8px 9px;
+  font-size:13px;
+}
+.relatorio-patrimonial-v74.compacto-v81 .rp-table-title{
+  margin:14px 0 8px;
+}
+@media print{
+  body{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-header{
+    padding-bottom:8px!important;
+    margin-bottom:8px!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 h1{
+    font-size:24px!important;
+    margin-bottom:4px!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-cards{
+    margin:8px 0!important;
+    gap:8px!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-card{
+    padding:8px 10px!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-detail{
+    padding:9px 12px!important;
+    margin:8px 0!important;
+    page-break-inside:avoid;
+    break-inside:avoid;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-row{
+    padding:5px 8px!important;
+    font-size:11.5px!important;
+  }
+  .relatorio-patrimonial-v74.compacto-v81 .rp-table-title{
+    margin-top:10px!important;
+  }
+  .relatorio-foto-v81 .rf-obs-box:empty:before{
+    content:"";
+  }
+}
+
+
+/* v82 - Galeria/Ficha do Bem com as mesmas informações completas do cadastro */
+.relatorio-foto-v82{
+  color:var(--texto);
+  background:#fff;
+}
+.relatorio-foto-v82 .rf-header{
+  display:grid;
+  grid-template-columns:1fr 120px;
+  gap:18px;
+  border-bottom:3px solid #159447;
+  padding-bottom:14px;
+  margin-bottom:16px;
+}
+.relatorio-foto-v82 .rf-gov{
+  font-size:12px;
+  letter-spacing:.08em;
+  text-transform:uppercase;
+  font-weight:900;
+  color:#087a32;
+}
+.relatorio-foto-v82 h1{
+  margin:4px 0 8px;
+  font-size:30px;
+  color:var(--texto);
+}
+.relatorio-foto-v82 .rf-meta{
+  color:#36556e;
+  font-weight:800;
+  margin:0;
+}
+.relatorio-foto-v82 .rf-logo{
+  text-align:right;
+}
+.relatorio-foto-v82 .rf-logo img,
+.relatorio-foto-v82 .rp-logo-img{
+  width:112px;
+  max-width:112px;
+  height:auto;
+}
+.relatorio-foto-v82 .rf-grid{
+  display:grid;
+  grid-template-columns:250px 1fr;
+  gap:20px;
+  align-items:start;
+}
+.relatorio-foto-v82 .rf-photo{
+  width:250px;
+  height:250px;
+  border-radius:18px;
+  border:1px solid var(--linha);
+  background:#d9f6ef;
+  display:grid;
+  place-items:center;
+  overflow:hidden;
+  font-size:54px;
+}
+.relatorio-foto-v82 .rf-photo img{
+  width:100%;
+  height:100%;
+  object-fit:cover;
+}
+.relatorio-foto-v82 .rf-table{
+  width:100%;
+  border-collapse:collapse;
+  font-size:13px;
+}
+.relatorio-foto-v82 .rf-table th,
+.relatorio-foto-v82 .rf-table td{
+  border-bottom:1px solid #e1edf0;
+  padding:8px 10px;
+  text-align:left;
+  vertical-align:top;
+}
+.relatorio-foto-v82 .rf-table th{
+  width:230px;
+  color:#64748b;
+  background:#fff;
+  font-weight:700;
+  text-transform:none;
+  font-size:13px;
+}
+.relatorio-foto-v82 .rf-table td{
+  color:#082f49;
+  font-weight:900;
+  text-align:right;
+}
+.relatorio-foto-v82 .rf-table .desc{
+  text-align:left;
+  font-size:14px;
+  line-height:1.25;
+}
+.relatorio-foto-v82 .badge-ficha{
+  display:inline-block;
+  margin-top:12px;
+  padding:8px 14px;
+  border-radius:999px;
+  background:#e7f8ee;
+  color:#007a32;
+  font-weight:900;
+}
+.relatorio-foto-v82 .rf-obs{
+  margin-top:18px;
+}
+.relatorio-foto-v82 .rf-obs h2{
+  margin:0 0 8px;
+  font-size:18px;
+}
+.relatorio-foto-v82 .rf-obs-box{
+  min-height:90px;
+  border:1px solid #b8ccd4;
+  border-radius:14px;
+  padding:12px;
+  background:#fff;
+  outline:none;
+  white-space:pre-wrap;
+}
+.relatorio-foto-v82 .rf-obs-box:empty:before{
+  content:"Clique aqui para inserir observações, se necessário.";
+  color:#8aa0ae;
+  font-weight:600;
+}
+.relatorio-foto-v82 .foto-page{
+  page-break-after:always;
+  break-after:page;
+}
+.relatorio-foto-v82 .foto-page:last-child{
+  page-break-after:auto;
+  break-after:auto;
+}
+@media print{
+  .relatorio-foto-v82{
+    -webkit-print-color-adjust:exact!important;
+    print-color-adjust:exact!important;
+  }
+  .relatorio-foto-v82 .rf-obs-box:empty:before{
+    content:"";
+  }
+}
+@media(max-width:900px){
+  .relatorio-foto-v82 .rf-header,
+  .relatorio-foto-v82 .rf-grid{
+    grid-template-columns:1fr;
+  }
+  .relatorio-foto-v82 .rf-logo{text-align:left}
+}
+
+
+/* v83 - camada responsiva celular/tablet/iPad sem mexer na base */
+html{
+  -webkit-text-size-adjust:100%;
+}
+img,svg,canvas{
+  max-width:100%;
+}
+.table-wrap{
+  overflow-x:auto;
+  -webkit-overflow-scrolling:touch;
+}
+
+/* Tablet e iPad em modo retrato/paisagem menor */
+@media (max-width:1180px){
+  .app{
+    grid-template-columns:240px 1fr;
+  }
+  .sidebar{
+    padding:18px 14px;
+  }
+  .side-head{
+    gap:10px;
+    margin-bottom:18px;
+  }
+  .side-head h2{
+    font-size:15px;
+    line-height:1.15;
+  }
+  .side-head p{
+    font-size:12px;
+  }
+  .nav button{
+    padding:11px 12px;
+    font-size:13px;
+  }
+  .top-content{
+    padding:16px 20px;
+  }
+  .view{
+    padding:22px 20px 50px;
+  }
+  .title h2{
+    font-size:28px;
+  }
+  .cards{
+    grid-template-columns:repeat(2,minmax(180px,1fr));
+  }
+  .grid-2{
+    grid-template-columns:1fr;
+  }
+  .gallery{
+    grid-template-columns:repeat(2,minmax(220px,1fr));
+  }
+  .form-grid.four{
+    grid-template-columns:repeat(2,1fr);
+  }
+  .closing-grid,
+  .closing-area,
+  .fechamento-grid,
+  .evolucao-grid,
+  .dashboard-grid{
+    grid-template-columns:1fr!important;
+  }
+  .modal-card.report{
+    width:98vw;
+  }
+}
+
+/* Celular e tablet pequeno */
+@media (max-width:820px){
+  body{
+    background:#f4f8f8;
+  }
+  .app{
+    display:block;
+    min-height:100vh;
+  }
+  .sidebar{
+    position:sticky;
+    top:0;
+    z-index:50;
+    height:auto;
+    min-height:0;
+    padding:10px 10px 12px;
+    border-radius:0 0 18px 18px;
+  }
+  .side-head{
+    margin:0 0 10px;
+    align-items:center;
+  }
+  .side-logo,
+  .side-logo-img,
+  .sgp-logo-simple{
+    width:46px!important;
+    height:46px!important;
+    min-width:46px!important;
+    border-radius:15px!important;
+  }
+  .side-head h2{
+    font-size:14px;
+    line-height:1.15;
+  }
+  .side-head p{
+    font-size:11px;
+    margin-top:3px;
+  }
+  .sidebar-profile{
+    margin:8px 0!important;
+    padding:9px 10px!important;
+  }
+  .profile-avatar{
+    width:38px!important;
+    height:38px!important;
+    min-width:38px!important;
+  }
+  .profile-name strong{
+    font-size:13px;
+  }
+  .profile-name small{
+    font-size:11px;
+  }
+  .nav{
+    display:flex;
+    flex-direction:row;
+    gap:8px;
+    overflow-x:auto;
+    padding:4px 0 6px;
+    -webkit-overflow-scrolling:touch;
+    scrollbar-width:thin;
+  }
+  .nav button{
+    flex:0 0 auto;
+    white-space:nowrap;
+    border-radius:999px;
+    padding:10px 13px;
+    font-size:12px;
+    background:rgba(255,255,255,.13);
+  }
+  .side-status{
+    display:none!important;
+  }
+  .topbar{
+    position:static;
+    z-index:auto;
+  }
+  .top-faixa{
+    height:9px;
+  }
+  .top-content{
+    padding:12px 12px;
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .header-title-logo{
+    align-items:center;
+    gap:10px;
+  }
+  .header-title-logo img{
+    width:46px!important;
+    height:auto!important;
+  }
+  .gov{
+    font-size:10px;
+  }
+  .top-content h1{
+    font-size:15px;
+    line-height:1.2;
+  }
+  .top-actions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:8px;
+  }
+  .top-actions button,
+  .top-actions select{
+    width:100%;
+    min-width:0;
+    padding:10px 8px;
+    font-size:12px;
+  }
+  .view{
+    padding:16px 10px 38px;
+  }
+  .title{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:12px;
+    margin-bottom:16px;
+  }
+  .title h2{
+    font-size:24px;
+    line-height:1.12;
+  }
+  .title p{
+    font-size:13px;
+  }
+  .title .actions-row,
+  .actions-row{
+    display:flex;
+    gap:8px;
+    overflow-x:auto;
+    padding-bottom:4px;
+    -webkit-overflow-scrolling:touch;
+  }
+  .title .actions-row button,
+  .actions-row button{
+    flex:0 0 auto;
+    white-space:nowrap;
+  }
+  .cards,
+  .cards.small,
+  .relatorio-resumo-cards{
+    grid-template-columns:1fr!important;
+    gap:12px;
+  }
+  .card{
+    border-radius:18px;
+    padding:16px 16px 16px 18px;
+  }
+  .card strong{
+    font-size:22px;
+  }
+  .panel,
+  .table-wrap,
+  .closing,
+  .chart-card{
+    border-radius:18px;
+    padding:14px;
+  }
+  .panel-head{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:10px;
+  }
+  .grid-2,
+  .form-grid,
+  .form-grid.four,
+  .depre-strip,
+  .report-summary,
+  .sgp-report .report-summary,
+  .sgp-report .report-kpis,
+  .relatorio-patrimonial-v74 .rp-cards,
+  .relatorio-foto-v82 .rf-grid{
+    grid-template-columns:1fr!important;
+  }
+  .form-grid{
+    gap:10px;
+  }
+  input,select,textarea{
+    min-width:0;
+    width:100%;
+    font-size:16px; /* evita zoom automático do iPhone */
+  }
+  button{
+    min-height:42px;
+  }
+  .gallery{
+    grid-template-columns:1fr!important;
+    gap:14px;
+  }
+  .item-img{
+    height:185px;
+  }
+  .item-card{
+    border-radius:20px;
+  }
+  .item-card h3{
+    font-size:15px;
+    line-height:1.25;
+  }
+  .report-row{
+    grid-template-columns:1fr!important;
+    padding:16px!important;
+    border-radius:18px!important;
+  }
+  .report-actions{
+    justify-content:flex-start!important;
+  }
+  .modal{
+    padding:8px;
+    align-items:start;
+    place-items:start center;
+    overflow:auto;
+  }
+  .modal-card,
+  .modal-card.large,
+  .modal-card.report{
+    width:100%;
+    max-width:100%;
+    max-height:none;
+    min-height:auto;
+    border-radius:20px;
+    padding:18px 14px;
+  }
+  .x{
+    right:10px;
+    top:10px;
+  }
+  .detail{
+    grid-template-columns:1fr!important;
+    gap:14px;
+  }
+  .detail-photo{
+    height:220px;
+  }
+  .detail-list div{
+    display:grid;
+    grid-template-columns:1fr;
+    gap:4px;
+    padding:9px 0;
+  }
+  .detail-list strong,
+  .detail-list td{
+    text-align:left!important;
+  }
+  .login{
+    padding:16px;
+    place-items:center;
+  }
+  .login-card{
+    width:100%!important;
+    max-width:430px!important;
+    padding:24px 18px!important;
+    border-radius:24px!important;
+  }
+  .login-card h1{
+    font-size:26px!important;
+    line-height:1.1;
+  }
+  .brand-card,
+  .login-brand{
+    display:none!important;
+  }
+  table{
+    font-size:12px;
+  }
+  th,td{
+    padding:8px 7px!important;
+  }
+  #depreciacao .dep-v79,
+  #depreciacao .dep-v78{
+    font-size:11.5px!important;
+  }
+  #depreciacao .dep-v79 td:nth-child(2),
+  #depreciacao .dep-v78 td:nth-child(2){
+    min-width:240px!important;
+    max-width:280px!important;
+  }
+}
+
+/* Celular pequeno */
+@media (max-width:520px){
+  .top-actions{
+    grid-template-columns:1fr;
+  }
+  .side-head h2{
+    font-size:13px;
+  }
+  .view{
+    padding-left:8px;
+    padding-right:8px;
+  }
+  .title h2{
+    font-size:22px;
+  }
+  .card strong{
+    font-size:21px;
+  }
+  .gallery-select{
+    font-size:11px!important;
+    padding:6px 8px!important;
+  }
+  .item-img{
+    height:170px;
+  }
+  .modal-card{
+    padding:16px 12px;
+  }
+  .relatorio-patrimonial-v74 h1,
+  .sgp-report h1,
+  .relatorio-foto-v82 h1{
+    font-size:23px!important;
+  }
+  .relatorio-patrimonial-v74 .rp-header,
+  .sgp-report.almox-v77 .rp-header,
+  .relatorio-foto-v82 .rf-header{
+    grid-template-columns:1fr!important;
+  }
+  .relatorio-patrimonial-v74 .rp-logo,
+  .sgp-report.almox-v77 .rp-logo,
+  .relatorio-foto-v82 .rf-logo{
+    text-align:left!important;
+  }
+  .relatorio-foto-v82 .rf-photo{
+    width:100%!important;
+    height:210px!important;
+  }
+  .relatorio-foto-v82 .rf-table th,
+  .relatorio-foto-v82 .rf-table td{
+    display:block;
+    width:100%!important;
+    text-align:left!important;
+  }
+  .relatorio-foto-v82 .rf-table th{
+    border-bottom:0;
+    padding-bottom:2px!important;
+  }
+  .relatorio-foto-v82 .rf-table td{
+    padding-top:2px!important;
+  }
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -9832,6 +10592,425 @@ function depAcumuladaTotalAteMesAnterior(){
   };
 
   window.addEventListener("resize", ()=>setTimeout(corrigirBarrasDepV80, 100));
+})();
+
+</script>
+
+<script>
+
+(function(){
+  function logoSecretariaV81(){
+    try{
+      if(typeof LOGO_SET_RELATORIO_V39 !== "undefined" && LOGO_SET_RELATORIO_V39){
+        return LOGO_SET_RELATORIO_V39;
+      }
+    }catch(e){}
+    return "";
+  }
+  function logoHtmlV81(){
+    const logo = logoSecretariaV81();
+    if(logo) return `<img class="rp-logo-img" src="${logo}" alt="Secretaria do Trabalho">`;
+    return `<div style="font-weight:900;font-size:24px;letter-spacing:.05em;color:#0b3a55">CEARÁ</div><small>Governo do Estado</small><small>Secretaria do Trabalho</small>`;
+  }
+  function usuarioImpressaoV81(){
+    try{
+      if(usuarioAtual){
+        return usuarioAtual.nome || usuarioAtual.email || usuarioAtual.perfil || "Usuário";
+      }
+    }catch(e){}
+    const possiveis = ["usuarioLogado","perfilNome","nomeUsuario","sidebarUserName"];
+    for(const id of possiveis){
+      const el = document.getElementById(id);
+      if(el && el.textContent.trim()) return el.textContent.trim();
+    }
+    return "Usuário";
+  }
+  function carimboImpressaoV81(){
+    return `Impresso por: ${usuarioImpressaoV81()} • ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`;
+  }
+  function moedaV81(v){ return moeda(Number(v || 0)); }
+  function dataAnteriorCompetenciaV81(){
+    try{
+      const d = new Date(Number(anoSelecionado), Number(mesSelecionado), 0);
+      return d.toLocaleDateString("pt-BR");
+    }catch(e){ return "-"; }
+  }
+  function depMesItemV81(b){
+    try{
+      if(typeof depMensalDep === "function") return depMensalDep(b, mesSelecionado, anoSelecionado);
+      if(typeof mensalDepV40 === "function") return mensalDepV40(b, mesSelecionado, anoSelecionado);
+      return depMensal(b, mesSelecionado, anoSelecionado);
+    }catch(e){ return 0; }
+  }
+  function depAnoItemV81(b){
+    try{
+      if(typeof depAnoDep === "function") return depAnoDep(b, mesSelecionado, anoSelecionado);
+      if(typeof anoDepV40 === "function") return anoDepV40(b, mesSelecionado, anoSelecionado);
+      return depAnoAteMes(b, mesSelecionado, anoSelecionado);
+    }catch(e){ return 0; }
+  }
+  function depAcumAntesItemV81(b){
+    try{
+      if(typeof depAcumuladaAnteriorDep === "function") return depAcumuladaAnteriorDep(b, mesSelecionado, anoSelecionado);
+      if(typeof depAcumuladaBemAnterior === "function") return depAcumuladaBemAnterior(b, mesSelecionado, anoSelecionado);
+      return Number(b.depAcum || 0);
+    }catch(e){ return Number(b.depAcum || 0); }
+  }
+  function atualItemV81(b){
+    try{
+      if(typeof valorAtualizadoDep === "function") return valorAtualizadoDep(b, mesSelecionado, anoSelecionado);
+      if(typeof atualDepV40 === "function") return atualDepV40(b, mesSelecionado, anoSelecionado);
+      return valorAtualizadoBem(b, mesSelecionado, anoSelecionado);
+    }catch(e){
+      return Math.max(Number(b.residual || 0), Number(b.valor || 0) - depAcumAntesItemV81(b) - depAnoItemV81(b));
+    }
+  }
+  function depExercicioItemV81(b){
+    return depAnoItemV81(b);
+  }
+  function depAcumTotalItemV81(b){
+    return depAcumAntesItemV81(b) + depAnoItemV81(b);
+  }
+
+  // Reaplica o relatório mensal patrimonial mais compacto e com carimbo.
+  const montarRelatorioPatrimonialAnteriorV81 = window.montarRelatorioPatrimonial;
+  window.montarRelatorioPatrimonial = function(){
+    const base = bensDoRelatorio(mesSelecionado, anoSelecionado).filter(b=>b.situacao !== "Baixado");
+    const saldoBens = saldoBensMoveis();
+    const depMes = depMesTotal();
+    const depAcumAnterior = base.reduce((s,b)=>s+depAcumAntesItemV81(b),0);
+    const depAcumTotal = base.reduce((s,b)=>s+depAcumTotalItemV81(b),0);
+    const saldoImob = saldoImobilizado();
+    const dataPos = dataPosicaoCompetencia();
+    const dataAnt = dataAnteriorCompetenciaV81();
+
+    const linhas = base.map(b=>{
+      return `<tr>
+        <td>${b.pat}</td>
+        <td>${b.desc}</td>
+        <td>${b.aquisicao || "-"}</td>
+        <td>${b.nf || "-"}</td>
+        <td>${moedaV81(b.valor)}</td>
+        <td>${moedaV81(b.residual)}</td>
+        <td>${b.taxa || "-"}</td>
+        <td>${moedaV81(typeof valorDepreciavel === "function" ? valorDepreciavel(b) : (Number(b.valor||0)-Number(b.residual||0)))}</td>
+        <td>${moedaV81(depMesItemV81(b))}</td>
+        <td>${moedaV81(depAnoItemV81(b))}</td>
+        <td>${moedaV81(depAcumTotalItemV81(b))}</td>
+        <td>${moedaV81(atualItemV81(b))}</td>
+        <td>${b.situacao || "-"}</td>
+      </tr>`;
+    }).join("");
+
+    return `
+      <div class="relatorio-patrimonial-v74 compacto-v81">
+        <div class="rp-header">
+          <div>
+            <div class="rp-gov">Governo do Estado do Ceará</div>
+            <h1>Relatório Mensal Patrimonial</h1>
+            <p class="rp-sub">Secretaria do Trabalho • Coordenadoria Administrativo-Financeira</p>
+            <p class="rp-meta"><strong>Competência:</strong> ${competenciaAtualTexto()} • <strong>Posição:</strong> ${dataPos} • <strong>Data de emissão:</strong> ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}</p>
+          </div>
+          <div class="rp-logo">${logoHtmlV81()}</div>
+        </div>
+
+        <div class="rp-cards">
+          <div class="rp-card"><span>Saldo dos bens móveis</span><strong>${moedaV81(saldoBens)}</strong></div>
+          <div class="rp-card"><span>Depreciação do mês</span><strong>${moedaV81(depMes)}</strong></div>
+          <div class="rp-card"><span>Depreciação acumulada</span><strong>${moedaV81(depAcumTotal)}</strong></div>
+          <div class="rp-card"><span>Saldo final imobilizado</span><strong>${moedaV81(saldoImob)}</strong></div>
+        </div>
+
+        <section class="rp-detail">
+          <h2>Bens Patrimoniais</h2>
+          <span class="rp-overline">Detalhamento dos Bens Patrimoniais</span>
+          <div class="rp-row"><span>Saldo inicial em ${dataAnt} (A)</span><strong>${moedaV81(0)}</strong></div>
+          <div class="rp-row"><span>Entradas do mês (B)</span><strong>${moedaV81(entradasMes(mesSelecionado))}</strong></div>
+          <div class="rp-row"><span>Investimento de capital a incorporar (C)</span><strong>${moedaV81(0)}</strong></div>
+          <div class="rp-row total"><span>Saldo final dos bens móveis em ${dataPos}</span><strong>${moedaV81(saldoBens)}</strong></div>
+          <div class="rp-row"><span>Valor depreciado no mês (D)</span><strong class="neg">${depMes > 0 ? "-"+moedaV81(depMes) : moedaV81(0)}</strong></div>
+          <div class="rp-row"><span>Ajuste de valor de depreciação (E)</span><strong>${moedaV81(0)}</strong></div>
+          <div class="rp-row"><span>Depreciação acumulada até mês anterior (F)</span><strong class="neg">${depAcumAnterior > 0 ? "-"+moedaV81(depAcumAnterior) : moedaV81(0)}</strong></div>
+          <div class="rp-row total"><span>Saldo final do imobilizado em ${dataPos}</span><strong>${moedaV81(saldoImob)}</strong></div>
+        </section>
+
+        <h2 class="rp-table-title">Relação dos bens patrimoniais</h2>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>Nº Patrim.</th><th>Descrição</th><th>Data aquisição</th><th>NF</th>
+                <th>Valor aquisição</th><th>Residual</th><th>Taxa</th><th>Base deprec.</th>
+                <th>Deprec. mês</th><th>Deprec. ano</th><th>Depr. acum.</th><th>Valor atual</th><th>Situação</th>
+              </tr>
+            </thead>
+            <tbody>${linhas || `<tr><td colspan="13">Nenhum bem listado para a competência.</td></tr>`}</tbody>
+          </table>
+        </div>
+
+        <div class="rp-obs">
+          <h2>Observações</h2>
+          <div class="rp-obs-box" contenteditable="true" spellcheck="true" title="Clique para editar as observações antes de imprimir."></div>
+        </div>
+
+        <div class="rp-printed">${carimboImpressaoV81()}</div>
+      </div>`;
+  };
+  window.montarRelatorioSEFAZ = window.montarRelatorioPatrimonial;
+
+  window.montarMiniRelatorioBem = function(pat){
+    const b = bens.find(x=>String(x.pat)===String(pat));
+    if(!b) return "";
+    return `
+      <div class="relatorio-foto-v81">
+        <div class="rf-header">
+          <div>
+            <div class="rf-gov">Governo do Estado do Ceará</div>
+            <h1>Ficha do Bem Patrimonial</h1>
+            <p class="rf-meta"><strong>Competência:</strong> ${competenciaAtualTexto()} • <strong>Posição:</strong> ${dataPosicaoCompetencia()}</p>
+          </div>
+          <div class="rf-logo">${logoHtmlV81()}</div>
+        </div>
+
+        <div class="rf-grid">
+          <div class="rf-photo">${b.foto ? `<img src="${b.foto}">` : "📦"}</div>
+          <table class="rf-table">
+            <tbody>
+              <tr><th>Nº Patrimonial</th><td>${b.pat}</td></tr>
+              <tr><th>Descrição</th><td>${b.desc}</td></tr>
+              <tr><th>Setor</th><td>${b.setor || "-"}</td></tr>
+              <tr><th>Responsável</th><td>${b.responsavel || "-"}</td></tr>
+              <tr><th>Nota Fiscal</th><td>${b.nf || "-"}</td></tr>
+              <tr><th>Aquisição</th><td>${b.aquisicao || "-"}</td></tr>
+              <tr><th>Início da depreciação</th><td>${b.inicio || "-"}</td></tr>
+              <tr><th>Valor aquisição</th><td>${moedaV81(b.valor)}</td></tr>
+              <tr><th>Valor residual</th><td>${moedaV81(b.residual)}</td></tr>
+              <tr><th>Taxa depreciação</th><td>${b.taxa || "-"}</td></tr>
+              <tr><th>Base depreciável</th><td>${moedaV81(typeof valorDepreciavel === "function" ? valorDepreciavel(b) : (Number(b.valor||0)-Number(b.residual||0)))}</td></tr>
+              <tr><th>Depreciação do mês</th><td>${moedaV81(depMesItemV81(b))}</td></tr>
+              <tr><th>Depreciação do exercício</th><td>${moedaV81(depExercicioItemV81(b))}</td></tr>
+              <tr><th>Depreciação no ano</th><td>${moedaV81(depAnoItemV81(b))}</td></tr>
+              <tr><th>Depreciação acumulada</th><td>${moedaV81(depAcumTotalItemV81(b))}</td></tr>
+              <tr><th>Valor atualizado</th><td>${moedaV81(atualItemV81(b))}</td></tr>
+              <tr><th>Situação</th><td>${b.situacao || "-"}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rf-obs">
+          <h2>Observações</h2>
+          <div class="rf-obs-box" contenteditable="true" spellcheck="true"></div>
+        </div>
+
+        <div class="rp-printed">${carimboImpressaoV81()}</div>
+      </div>`;
+  };
+
+  window.baixarRelatorioBemPDF = function(pat){
+    abrirJanelaRelatorio("Ficha do Bem " + pat, montarMiniRelatorioBem(pat));
+  };
+
+  window.montarRelatorioFotograficoBens = function(lista){
+    const paginas = lista.map(b=>`<div class="foto-page">${montarMiniRelatorioBem(b.pat)}</div>`).join("");
+    return `<div class="relatorio-foto-v81">${paginas || "<p>Nenhum bem listado.</p>"}</div>`;
+  };
+
+  window.baixarRelatorioGaleriaPDF = function(){
+    const lista = typeof baseGaleriaRelatorio === "function" ? baseGaleriaRelatorio() : bensDaCompetencia().filter(b=>b.situacao !== "Baixado");
+    abrirJanelaRelatorio("Relatório Fotográfico Patrimonial", montarRelatorioFotograficoBens(lista));
+  };
+
+  window.baixarRelatorioGaleriaSelecionadosPDF = function(){
+    const base = typeof baseGaleriaRelatorio === "function" ? baseGaleriaRelatorio() : bensDaCompetencia().filter(b=>b.situacao !== "Baixado");
+    const lista = base.filter(b=>window.galeriaSelecionados && galeriaSelecionados.has(String(b.pat)));
+    if(!lista.length){
+      alert("Selecione pelo menos um item da galeria.");
+      return;
+    }
+    abrirJanelaRelatorio("Relatório Fotográfico Patrimonial - Selecionados", montarRelatorioFotograficoBens(lista));
+  };
+
+  // Imprimir qualquer relatório respeitando observações já digitadas no modal.
+  window.imprimirRelatorio = function(){
+    const conteudoEl = document.getElementById("conteudoRelatorio");
+    const conteudo = conteudoEl && conteudoEl.innerHTML.trim() ? conteudoEl.innerHTML : montarRelatorioPatrimonial();
+    abrirJanelaRelatorio("Relatório", conteudo);
+  };
+  window.imprimirRelatorioMensal = function(){
+    const conteudoEl = document.getElementById("conteudoRelatorio");
+    const modalAberto = conteudoEl && !document.getElementById("modalRelatorio")?.classList.contains("hidden") && conteudoEl.innerHTML.trim();
+    abrirJanelaRelatorio("Relatório Mensal Patrimonial", modalAberto ? conteudoEl.innerHTML : montarRelatorioPatrimonial());
+  };
+  window.gerarRelatorioSEFAZ = window.imprimirRelatorioMensal;
+})();
+
+</script>
+
+<script>
+
+(function(){
+  function logoSecretariaV82(){
+    try{
+      if(typeof LOGO_SET_RELATORIO_V39 !== "undefined" && LOGO_SET_RELATORIO_V39){
+        return LOGO_SET_RELATORIO_V39;
+      }
+    }catch(e){}
+    return "";
+  }
+  function logoHtmlV82(){
+    const logo = logoSecretariaV82();
+    if(logo) return `<img class="rp-logo-img" src="${logo}" alt="Secretaria do Trabalho">`;
+    return `<div style="font-weight:900;font-size:24px;letter-spacing:.05em;color:#0b3a55">CEARÁ</div><small>Governo do Estado</small><small>Secretaria do Trabalho</small>`;
+  }
+  function usuarioImpressaoV82(){
+    try{
+      if(usuarioAtual){
+        return usuarioAtual.nome || usuarioAtual.email || usuarioAtual.perfil || "Usuário";
+      }
+    }catch(e){}
+    const possiveis = ["usuarioLogado","perfilNome","nomeUsuario","sidebarUserName"];
+    for(const id of possiveis){
+      const el = document.getElementById(id);
+      if(el && el.textContent.trim()) return el.textContent.trim();
+    }
+    return "Usuário";
+  }
+  function carimboImpressaoV82(){
+    return `Impresso por: ${usuarioImpressaoV82()} • ${new Date().toLocaleDateString("pt-BR")} ${new Date().toLocaleTimeString("pt-BR",{hour:"2-digit",minute:"2-digit"})}`;
+  }
+  function moedaV82(v){ return moeda(Number(v || 0)); }
+  function depMesItemV82(b){
+    try{
+      if(typeof depMensalDep === "function") return depMensalDep(b, mesSelecionado, anoSelecionado);
+      if(typeof mensalDepV40 === "function") return mensalDepV40(b, mesSelecionado, anoSelecionado);
+      return depMensal(b, mesSelecionado, anoSelecionado);
+    }catch(e){ return 0; }
+  }
+  function depAnoItemV82(b){
+    try{
+      if(typeof depAnoDep === "function") return depAnoDep(b, mesSelecionado, anoSelecionado);
+      if(typeof anoDepV40 === "function") return anoDepV40(b, mesSelecionado, anoSelecionado);
+      return depAnoAteMes(b, mesSelecionado, anoSelecionado);
+    }catch(e){ return 0; }
+  }
+  function depAcumAntesItemV82(b){
+    try{
+      if(typeof depAcumuladaAnteriorDep === "function") return depAcumuladaAnteriorDep(b, mesSelecionado, anoSelecionado);
+      if(typeof depAcumuladaBemAnterior === "function") return depAcumuladaBemAnterior(b, mesSelecionado, anoSelecionado);
+      return Number(b.depAcum || 0);
+    }catch(e){ return Number(b.depAcum || 0); }
+  }
+  function depAcumTotalItemV82(b){
+    return depAcumAntesItemV82(b) + depAnoItemV82(b);
+  }
+  function atualItemV82(b){
+    try{
+      if(typeof valorAtualizadoDep === "function") return valorAtualizadoDep(b, mesSelecionado, anoSelecionado);
+      if(typeof atualDepV40 === "function") return atualDepV40(b, mesSelecionado, anoSelecionado);
+      return valorAtualizadoBem(b, mesSelecionado, anoSelecionado);
+    }catch(e){
+      return Math.max(Number(b.residual || 0), Number(b.valor || 0) - depAcumTotalItemV82(b));
+    }
+  }
+  function valorDepreciavelV82(b){
+    try{
+      if(typeof valorDepreciavel === "function") return valorDepreciavel(b);
+    }catch(e){}
+    return Math.max(0, Number(b.valor || 0) - Number(b.residual || 0));
+  }
+  function dataBRV82(v){
+    if(!v) return "-";
+    const s = String(v);
+    if(/^\d{4}-\d{2}-\d{2}$/.test(s)){
+      const [a,m,d] = s.split("-");
+      return `${d}/${m}/${a}`;
+    }
+    return s;
+  }
+
+  // Ficha/relatório de foto com exatamente as informações completas da ficha do sistema.
+  window.montarMiniRelatorioBem = function(pat){
+    const b = bens.find(x=>String(x.pat)===String(pat));
+    if(!b) return "";
+
+    const depMes = depMesItemV82(b);
+    const depAno = depAnoItemV82(b);
+    const depAcum = depAcumAntesItemV82(b);
+    const depAcumTotal = depAcumTotalItemV82(b);
+    const atual = atualItemV82(b);
+    const valorDep = valorDepreciavelV82(b);
+
+    return `
+      <div class="relatorio-foto-v82">
+        <div class="rf-header">
+          <div>
+            <div class="rf-gov">Governo do Estado do Ceará</div>
+            <h1>Ficha do Bem Patrimonial</h1>
+            <p class="rf-meta"><strong>Competência:</strong> ${competenciaAtualTexto()} • <strong>Posição:</strong> ${dataPosicaoCompetencia()}</p>
+          </div>
+          <div class="rf-logo">${logoHtmlV82()}</div>
+        </div>
+
+        <div class="rf-grid">
+          <div>
+            <div class="rf-photo">${b.foto ? `<img src="${b.foto}">` : "📦"}</div>
+            <span class="badge-ficha">${b.situacao || "-"}</span>
+          </div>
+
+          <table class="rf-table">
+            <tbody>
+              <tr><th>Nº Patrimonial</th><td>${b.pat}</td></tr>
+              <tr><th>Descrição</th><td class="desc">${b.desc}</td></tr>
+              <tr><th>Setor</th><td>${b.setor || "-"}</td></tr>
+              <tr><th>Responsável pelo bem</th><td>${b.responsavel || "-"}</td></tr>
+              <tr><th>Nota Fiscal</th><td>${b.nf || "-"}</td></tr>
+              <tr><th>Aquisição</th><td>${dataBRV82(b.aquisicao)}</td></tr>
+              <tr><th>Início da Depreciação</th><td>${dataBRV82(b.inicio)}</td></tr>
+              <tr><th>Valor de Aquisição</th><td>${moedaV82(b.valor)}</td></tr>
+              <tr><th>Valor Residual</th><td>${moedaV82(b.residual)}</td></tr>
+              <tr><th>Taxa Depreciação</th><td>${b.taxa || "-"}</td></tr>
+              <tr><th>Valor a Depreciar</th><td>${moedaV82(valorDep)}</td></tr>
+              <tr><th>Depreciação Mensal</th><td>${moedaV82(depMes)}</td></tr>
+              <tr><th>Depr. Acumulada</th><td>${moedaV82(depAcum)}</td></tr>
+              <tr><th>Valor Depreciado no Ano</th><td>${moedaV82(depAno)}</td></tr>
+              <tr><th>Depreciação Acumulada Total</th><td>${moedaV82(depAcumTotal)}</td></tr>
+              <tr><th>Valor do Bem Atualizado</th><td>${moedaV82(atual)}</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="rf-obs">
+          <h2>Observações</h2>
+          <div class="rf-obs-box" contenteditable="true" spellcheck="true" title="Clique para editar as observações antes de imprimir."></div>
+        </div>
+
+        <div class="rp-printed">${carimboImpressaoV82()}</div>
+      </div>`;
+  };
+
+  window.baixarRelatorioBemPDF = function(pat){
+    abrirJanelaRelatorio("Ficha do Bem " + pat, montarMiniRelatorioBem(pat));
+  };
+
+  window.montarRelatorioFotograficoBens = function(lista){
+    const paginas = lista.map(b=>`<div class="foto-page">${montarMiniRelatorioBem(b.pat)}</div>`).join("");
+    return `<div class="relatorio-foto-v82">${paginas || "<p>Nenhum bem listado.</p>"}</div>`;
+  };
+
+  window.baixarRelatorioGaleriaPDF = function(){
+    const lista = typeof baseGaleriaRelatorio === "function" ? baseGaleriaRelatorio() : bensDaCompetencia().filter(b=>b.situacao !== "Baixado");
+    abrirJanelaRelatorio("Relatório Fotográfico Patrimonial", montarRelatorioFotograficoBens(lista));
+  };
+
+  window.baixarRelatorioGaleriaSelecionadosPDF = function(){
+    const base = typeof baseGaleriaRelatorio === "function" ? baseGaleriaRelatorio() : bensDaCompetencia().filter(b=>b.situacao !== "Baixado");
+    const lista = base.filter(b=>window.galeriaSelecionados && galeriaSelecionados.has(String(b.pat)));
+    if(!lista.length){
+      alert("Selecione pelo menos um item da galeria.");
+      return;
+    }
+    abrirJanelaRelatorio("Relatório Fotográfico Patrimonial - Selecionados", montarRelatorioFotograficoBens(lista));
+  };
 })();
 
 </script>
