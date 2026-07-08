@@ -11014,5 +11014,276 @@ function depAcumuladaTotalAteMesAnterior(){
 })();
 
 </script>
+
+<script>
+
+(function(){
+  // v84: correção de valores monetários do Almoxarifado.
+  // Alguns templates chegam com os centavos "grudados" (100,00 vira 10000).
+  // Para colunas de VALOR/FECHAMENTO, tratamos como centavos quando necessário e mantemos 2 casas.
+  function normalizarMoedaAlmoxV84(valor){
+    if(valor === null || valor === undefined || valor === "") return 0;
+
+    if(typeof valor === "number"){
+      // Número vindo do Excel já costuma vir correto: 100 => 100,00.
+      return Math.round(valor * 100) / 100;
+    }
+
+    let s = String(valor).trim();
+    if(!s) return 0;
+    s = s.replace(/[R$\s]/g, "");
+
+    const temVirgula = s.includes(",");
+    const temPonto = s.includes(".");
+
+    let n = 0;
+
+    if(temVirgula){
+      n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+    }else if(temPonto){
+      // Se tiver ponto como decimal, respeita. Se for milhar puro, remove.
+      const partes = s.split(".");
+      if(partes.length === 2 && partes[1].length <= 2){
+        n = parseFloat(s);
+      }else{
+        n = parseFloat(s.replace(/\./g, ""));
+      }
+    }else{
+      // Sem separador: pode ser centavos colados.
+      n = parseFloat(s) || 0;
+      const somenteDigitos = /^\d+$/.test(s);
+      // 10000, 64800, 160067, 6357701 => 100,00 / 648,00 / 1.600,67 / 63.577,01.
+      // Mantém números pequenos como 100 => 100,00.
+      if(somenteDigitos && s.length >= 4){
+        n = n / 100;
+      }
+    }
+
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function normalizarQtdAlmoxV84(valor){
+    const n = parseNumeroBR(valor);
+    if(!Number.isFinite(n)) return 0;
+    // Quantidade não é moeda; no máximo 2 casas.
+    return Math.round(n * 100) / 100;
+  }
+
+  function corrigirRegistroAlmoxV84(reg){
+    if(!reg) return reg;
+    const clone = {...reg};
+
+    const camposMoeda = [
+      "valorEstoque","entradas","consumo","saldoAnterior","entradaNotaFiscal","entradaDevolucao",
+      "entradaDoacao","entradaInventario","saidaBaixa","saidaDoacao","saidaInventario","ajustes","saldoFinal"
+    ];
+    camposMoeda.forEach(c=>{
+      if(clone[c] !== undefined) clone[c] = normalizarMoedaAlmoxV84(clone[c]);
+    });
+
+    if(Array.isArray(clone.itens)){
+      clone.itens = clone.itens.map(i=>({
+        ...i,
+        estoqueAnterior: normalizarQtdAlmoxV84(i.estoqueAnterior),
+        qtdEntrada: normalizarQtdAlmoxV84(i.qtdEntrada),
+        qtdSaida: normalizarQtdAlmoxV84(i.qtdSaida),
+        estoqueAtual: normalizarQtdAlmoxV84(i.estoqueAtual),
+        valorAnterior: normalizarMoedaAlmoxV84(i.valorAnterior),
+        valorEntrada: normalizarMoedaAlmoxV84(i.valorEntrada),
+        valorSaida: normalizarMoedaAlmoxV84(i.valorSaida),
+        valorEstoque: normalizarMoedaAlmoxV84(i.valorEstoque)
+      }));
+    }
+
+    return clone;
+  }
+
+  window.corrigirAlmoxarifadoV84 = function(){
+    try{
+      carregarAlmoxarifado();
+      let mudou = false;
+      almoxarifadoAnexos = (almoxarifadoAnexos || []).map(reg=>{
+        const novo = corrigirRegistroAlmoxV84(reg);
+        if(JSON.stringify(novo) !== JSON.stringify(reg)) mudou = true;
+        return novo;
+      });
+      if(mudou) salvarAlmoxarifadoLocal();
+      renderTudo();
+      return mudou;
+    }catch(e){
+      console.warn("Não foi possível corrigir almoxarifado v84", e);
+      return false;
+    }
+  };
+
+  window.importarTemplateAlmoxarifado = async function(event){
+    const file = event?.target?.files?.[0];
+    if(!file) return;
+    try{
+      const data = await file.arrayBuffer();
+      let rows = [];
+      if(file.name.toLowerCase().endsWith(".csv")){
+        const text = new TextDecoder("utf-8").decode(data);
+        const wb = XLSX.read(text, {type:"string"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+      }else{
+        const wb = XLSX.read(data, {type:"array"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+      }
+
+      const itens = [];
+      const fechamento = {};
+      rows.forEach((row)=>{
+        const nrow = {};
+        Object.keys(row).forEach(k=>nrow[normalizarCabecalho(k)] = row[k]);
+
+        const codigo = String(nrow.codigo || nrow.cod || "").trim();
+        const material = String(nrow.material || nrow.descricao || nrow.item || "").trim();
+        if(!codigo && !material) return;
+        if(codigo.toUpperCase()==="OBS") return;
+        if(material.toUpperCase().includes("EXEMPLO DE MATERIAL")) return;
+        if(material.toUpperCase().includes("AS COLUNAS FECHAMENTO")) return;
+
+        const item = {
+          codigo,
+          material,
+          unidade: String(nrow.unidade || nrow.und || "").trim(),
+          estoqueAnterior: normalizarQtdAlmoxV84(nrow.estoque_anterior || 0),
+          valorAnterior: normalizarMoedaAlmoxV84(nrow.valor_anterior || 0),
+          qtdEntrada: normalizarQtdAlmoxV84(nrow.quantidade_entrada || nrow.qtd_entrada || 0),
+          valorEntrada: normalizarMoedaAlmoxV84(nrow.valor_entrada || 0),
+          qtdSaida: normalizarQtdAlmoxV84(nrow.quantidade_saida || nrow.quantidade_saida_ || nrow.qtd_saida || 0),
+          valorSaida: normalizarMoedaAlmoxV84(nrow.valor_saida || 0),
+          estoqueAtual: normalizarQtdAlmoxV84(nrow.estoque_atual || 0),
+          valorEstoque: normalizarMoedaAlmoxV84(nrow.valor_estoque || nrow.vlr_estoque || 0),
+          competencia: String(nrow.competencia || competenciaAtualTexto()).trim()
+        };
+        itens.push(item);
+
+        const mapaFech = {
+          saldoAnterior: ["fechamento_saldo_anterior"],
+          entradaNotaFiscal: ["fechamento_entradas_por_nota_fiscal"],
+          entradaDevolucao: ["fechamento_entradas_por_devolucao"],
+          entradaDoacao: ["fechamento_entradas_por_doacao"],
+          entradaInventario: ["fechamento_entradas_por_inventario"],
+          entradas: ["fechamento_total_de_entradas"],
+          saidaBaixa: ["fechamento_saidas_por_baixa"],
+          saidaDoacao: ["fechamento_saidas_por_doacao"],
+          consumo: ["fechamento_saidas_por_requisicao_consumo_do_mes", "fechamento_saidas_por_requisicao_consumo_do_mes_"],
+          saidaInventario: ["fechamento_saidas_por_inventario"],
+          ajustes: ["fechamento_recalculo_extra_ajustes"],
+          saldoFinal: ["fechamento_saldo_final"]
+        };
+        Object.entries(mapaFech).forEach(([dest, keys])=>{
+          for(const k of keys){
+            if(nrow[k] !== undefined && nrow[k] !== ""){
+              const val = normalizarMoedaAlmoxV84(nrow[k]);
+              if(val || fechamento[dest] === undefined) fechamento[dest] = val;
+              break;
+            }
+          }
+        });
+      });
+
+      carregarAlmoxarifado();
+      const chave = chaveAlmoxarifado();
+      const totalEntrada = Math.round(itens.reduce((s,i)=>s+Number(i.valorEntrada||0),0) * 100) / 100;
+      const totalSaida = Math.round(itens.reduce((s,i)=>s+Number(i.valorSaida||0),0) * 100) / 100;
+      const totalEstoque = Math.round(itens.reduce((s,i)=>s+Number(i.valorEstoque||0),0) * 100) / 100;
+
+      const registro = corrigirRegistroAlmoxV84({
+        chave, mes:mesSelecionado, ano:anoSelecionado,
+        nomeArquivo:file.name,
+        importadoEm:new Date().toISOString(),
+        itens,
+        quantidadeItens: itens.length,
+        valorEstoque: totalEstoque,
+        entradas: fechamento.entradas ?? totalEntrada,
+        consumo: fechamento.consumo ?? totalSaida,
+        saldoAnterior: fechamento.saldoAnterior ?? itens.reduce((s,i)=>s+Number(i.valorAnterior||0),0),
+        entradaNotaFiscal: fechamento.entradaNotaFiscal ?? totalEntrada,
+        entradaDevolucao: fechamento.entradaDevolucao ?? 0,
+        entradaDoacao: fechamento.entradaDoacao ?? 0,
+        entradaInventario: fechamento.entradaInventario ?? 0,
+        saidaBaixa: fechamento.saidaBaixa ?? 0,
+        saidaDoacao: fechamento.saidaDoacao ?? 0,
+        saidaInventario: fechamento.saidaInventario ?? 0,
+        ajustes: fechamento.ajustes ?? 0,
+        saldoFinal: fechamento.saldoFinal ?? totalEstoque
+      });
+
+      const idx = almoxarifadoAnexos.findIndex(a=>a.chave===chave);
+      if(idx>=0) almoxarifadoAnexos[idx] = registro;
+      else almoxarifadoAnexos.push(registro);
+      salvarAlmoxarifadoLocal();
+
+      event.target.value = "";
+      renderTudo();
+      alert(`Almoxarifado importado para ${competenciaAtualTexto()} sem duplicar. Itens: ${itens.length}. Valores considerados com 2 casas decimais.`);
+    }catch(e){
+      console.error(e);
+      alert("Erro ao importar template do Almoxarifado: " + (e.message || e));
+    }
+  };
+
+  window.renderAlmoxarifado = function(){
+    carregarAlmoxarifado();
+    const regAtual = anexoAlmoxarifadoCompetencia();
+    const regCorrigido = corrigirRegistroAlmoxV84(regAtual);
+    if(regAtual && JSON.stringify(regAtual) !== JSON.stringify(regCorrigido)){
+      const idx = almoxarifadoAnexos.findIndex(a=>a.chave===regAtual.chave);
+      if(idx >= 0){
+        almoxarifadoAnexos[idx] = regCorrigido;
+        salvarAlmoxarifadoLocal();
+      }
+    }
+
+    const tabela = document.getElementById("almoxTabela");
+    const itens = typeof itensAlmoxarifadoCompetencia === "function" ? itensAlmoxarifadoCompetencia().map(corrigirRegistroAlmoxV84) : [];
+    const busca = String(document.getElementById("almoxBusca")?.value || "").toLowerCase();
+    const filtro = document.getElementById("almoxFiltroMovimento")?.value || "";
+    let base = itens.filter(i => !busca || `${i.codigo} ${i.material}`.toLowerCase().includes(busca));
+    if(filtro === "comEntrada") base = base.filter(i=>Number(i.qtdEntrada||0)>0 || Number(i.valorEntrada||0)>0);
+    if(filtro === "comSaida") base = base.filter(i=>Number(i.qtdSaida||0)>0 || Number(i.valorSaida||0)>0);
+    if(filtro === "semMovimento") base = base.filter(i=>!(Number(i.qtdEntrada||0)>0 || Number(i.valorEntrada||0)>0 || Number(i.qtdSaida||0)>0 || Number(i.valorSaida||0)>0));
+
+    if(tabela){
+      tabela.innerHTML = base.length ? base.map(i=>`
+        <tr>
+          <td>${i.codigo || "-"}</td>
+          <td>${i.material || "-"}</td>
+          <td>${i.unidade || "-"}</td>
+          <td>${Number(i.estoqueAnterior || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(normalizarMoedaAlmoxV84(i.valorAnterior))}</td>
+          <td>${Number(i.qtdEntrada || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(normalizarMoedaAlmoxV84(i.valorEntrada))}</td>
+          <td>${Number(i.qtdSaida || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(normalizarMoedaAlmoxV84(i.valorSaida))}</td>
+          <td>${Number(i.estoqueAtual || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(normalizarMoedaAlmoxV84(i.valorEstoque))}</td>
+          <td>${(Number(i.qtdSaida||0)>0 || Number(i.valorSaida||0)>0) ? "Com saída" : ((Number(i.qtdEntrada||0)>0 || Number(i.valorEntrada||0)>0) ? "Com entrada" : "Sem movimento")}</td>
+        </tr>
+      `).join("") : `<tr><td colspan="12" class="empty">Nenhum item do Almoxarifado importado para esta competência.</td></tr>`;
+    }
+
+    const dados = resumoAlmoxCompetencia();
+    const setTxt = (id, valor)=>{ const el=document.getElementById(id); if(el) el.textContent = valor; };
+    setTxt("almoxTotalItens", String(itens.length));
+    setTxt("almoxTotalEstoque", moeda(normalizarMoedaAlmoxV84(dados.saldoFinal)));
+    setTxt("almoxTotalEntradas", moeda(normalizarMoedaAlmoxV84(dados.entradas)));
+    setTxt("almoxTotalSaidas", moeda(normalizarMoedaAlmoxV84(dados.consumo)));
+  };
+
+  const renderTudoAnteriorV84 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV84();
+    try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render almox v84", e); }
+  };
+})();
+
+</script>
 </body>
 </html>
