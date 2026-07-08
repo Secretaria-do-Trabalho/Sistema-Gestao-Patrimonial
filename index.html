@@ -1015,7 +1015,7 @@ button.delete-btn:hover{
 }
 
 
-/* v44 - Login SGP centralizado */
+/* v50 - Login SGP em arquivo único, mantendo lógica original */
 .login{
   min-height:100vh !important;
   display:grid !important;
@@ -1026,135 +1026,29 @@ button.delete-btn:hover{
     radial-gradient(circle at 90% 85%, rgba(24,168,58,.22), transparent 32%),
     #eef8f6 !important;
 }
-.login::before,
-.login::after{
-  display:none !important;
-}
 .login-card{
-  width:min(520px,92vw) !important;
-  background:#fff !important;
-  border-radius:28px !important;
-  box-shadow:0 18px 48px rgba(13,55,80,.14) !important;
-  overflow:hidden !important;
-  border:1px solid var(--linha) !important;
-}
-.login-card .faixa{
-  height:22px !important;
-  background:linear-gradient(105deg,var(--laranja) 0 9%, var(--azul-claro) 9% 30%, var(--verde) 30% 63%, var(--turquesa) 63% 100%) !important;
-}
-.login-content{
-  padding:34px !important;
-}
-.login-content .brand{
-  display:flex !important;
-  gap:16px !important;
-  align-items:center !important;
-  margin-bottom:22px !important;
+  width:min(560px,92vw) !important;
 }
 .login-content .brand .logo{
-  width:70px !important;
-  height:70px !important;
-  border-radius:20px !important;
-  background:linear-gradient(135deg,var(--verde),var(--turquesa)) !important;
-  color:#fff !important;
-  display:grid !important;
-  place-items:center !important;
-  font-size:23px !important;
-  font-weight:1000 !important;
-  letter-spacing:.02em !important;
-  flex:0 0 auto !important;
-}
-.login-content .brand h1{
-  margin:0 !important;
-  font-size:28px !important;
-  line-height:1.12 !important;
-  color:var(--texto) !important;
-}
-.login-content .brand p{
-  margin:7px 0 0 !important;
-  color:var(--muted) !important;
-  font-weight:700 !important;
-  line-height:1.35 !important;
-}
-.login-content .info{
-  padding:14px 15px !important;
-  border-radius:18px !important;
-  background:#eefaf4 !important;
-  border:1px solid #cdf0dd !important;
-  margin-bottom:18px !important;
-  color:#2e4759 !important;
-  line-height:1.42 !important;
-  font-size:14px !important;
-}
-.password-row{
-  position:relative !important;
-}
-.password-row input{
-  padding-right:56px !important;
-}
-.toggle-pass{
-  position:absolute !important;
-  right:10px !important;
-  top:50% !important;
-  transform:translateY(-50%) !important;
-  width:38px !important;
-  height:38px !important;
-  margin-top:0 !important;
-  padding:0 !important;
-  border-radius:12px !important;
-  border:1px solid var(--linha) !important;
-  background:#f5f8fa !important;
-  color:#4f6b7b !important;
-  display:grid !important;
-  place-items:center !important;
-  font-size:16px !important;
-}
-.toggle-pass:hover{
-  background:#ebf3f6 !important;
-}
-@media(max-width:640px){
-  .login-content{
-    padding:26px !important;
-  }
-  .login-content .brand h1{
-    font-size:21px !important;
-  }
-  .login-content .brand .logo{
-    width:58px !important;
-    height:58px !important;
-    font-size:20px !important;
-  }
-}
-
-
-/* v45 - Ajuste fino do login SGP */
-.login-content .brand{
-  align-items:center !important;
-}
-.login-content .brand .logo{
-  width:64px !important;
-  height:64px !important;
-  border-radius:18px !important;
   font-size:22px !important;
+  letter-spacing:.02em !important;
 }
 .login-content .brand h1{
-  font-size:25px !important;
+  font-size:26px !important;
   line-height:1.05 !important;
   white-space:nowrap !important;
   letter-spacing:-.02em !important;
 }
 .login-content .brand p{
-  font-size:15px !important;
-  margin-top:8px !important;
-  color:#536b7d !important;
+  font-weight:800 !important;
 }
 .login-content .info{
   font-size:14px !important;
-  line-height:1.38 !important;
+  line-height:1.42 !important;
 }
 .login-content .info strong{
-  font-size:15px !important;
   color:var(--texto) !important;
+  font-size:15px !important;
 }
 @media(max-width:640px){
   .login-content .brand h1{
@@ -1170,7 +1064,6 @@ button.delete-btn:hover{
 </head>
 <body>
 
-
 <section id="login" class="login">
   <div class="login-card">
     <div class="faixa"></div>
@@ -1182,29 +1075,21 @@ button.delete-btn:hover{
           <p>Secretaria do Trabalho</p>
         </div>
       </div>
-
       <div class="info">
         <strong>Gestão Patrimonial</strong><br>
-        Cadastro, controle e acompanhamento dos bens patrimoniais da Secretaria do Trabalho.
+          Cadastro, controle e acompanhamento dos bens patrimoniais da Secretaria do Trabalho.
       </div>
-
       <label>Usuário</label>
       <input id="loginUsuario" value="COAFI">
-
       <label>Senha</label>
-      <div class="password-row">
-        <input id="loginSenha" type="password" value="123456">
-        <button class="toggle-pass" type="button" aria-label="Visualizar senha" onclick="alternarSenhaLogin(this)">👁</button>
-      </div>
-
+      <input id="loginSenha" type="password" value="123456">
       <button class="primary" onclick="entrar()">Entrar no sistema</button>
       <button class="secondary" onclick="abrirCriarUsuario()" style="margin-top:10px">Criar usuário</button>
       <button class="link-btn" onclick="abrirRecuperarSenha()" type="button">Recuperar senha</button>
-      <small>Novos usuários e recuperações de senha ficam pendentes até aprovação do administrador.</small>
+      <small>Usuários novos e recuperações de senha ficam pendentes até aprovação do administrador.</small>
     </div>
   </div>
 </section>
-
 
 <section id="app" class="app hidden">
   <aside class="sidebar">
@@ -5890,16 +5775,6 @@ function renderMovimentacoes(){
   }).join("");
 }
 
-
-
-
-function alternarSenhaLogin(btn){
-  const input = document.getElementById("loginSenha");
-  if(!input) return;
-  const mostrar = input.type === "password";
-  input.type = mostrar ? "text" : "password";
-  if(btn) btn.textContent = mostrar ? "🙈" : "👁";
-}
 
 </script>
 
