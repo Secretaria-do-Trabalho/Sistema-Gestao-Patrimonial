@@ -11583,5 +11583,91 @@ function depAcumuladaTotalAteMesAnterior(){
 })();
 
 </script>
+
+<script>
+
+(function(){
+  // v86 - corrigir fechamento do modal de edição do Almoxarifado
+  window.fecharModalAlmoxarifado = function(){
+    const modal = document.getElementById("modal");
+    if(modal){
+      modal.classList.add("hidden");
+      modal.innerHTML = "";
+    }
+  };
+
+  const editarItemAlmoxAnteriorV86 = window.editarItemAlmoxarifado;
+  window.editarItemAlmoxarifado = function(indice){
+    if(typeof editarItemAlmoxAnteriorV86 === "function"){
+      editarItemAlmoxAnteriorV86(indice);
+    }
+
+    setTimeout(()=>{
+      const modal = document.getElementById("modal");
+      if(!modal) return;
+
+      const card = modal.querySelector(".modal-card");
+      if(card && !card.dataset.almoxV86){
+        card.dataset.almoxV86 = "1";
+
+        const x = card.querySelector(".x");
+        if(x){
+          x.setAttribute("type", "button");
+          x.onclick = function(ev){
+            ev.preventDefault();
+            ev.stopPropagation();
+            fecharModalAlmoxarifado();
+          };
+        }
+
+        card.querySelectorAll("button").forEach(btn=>{
+          if((btn.textContent || "").trim().toLowerCase() === "cancelar"){
+            btn.setAttribute("type", "button");
+            btn.onclick = function(ev){
+              ev.preventDefault();
+              ev.stopPropagation();
+              fecharModalAlmoxarifado();
+            };
+          }
+        });
+      }
+    }, 30);
+  };
+
+  const salvarEdicaoAlmoxAnteriorV86 = window.salvarEdicaoItemAlmoxarifado;
+  window.salvarEdicaoItemAlmoxarifado = function(indice){
+    if(typeof salvarEdicaoAlmoxAnteriorV86 === "function"){
+      salvarEdicaoAlmoxAnteriorV86(indice);
+    }
+    try{
+      fecharModalAlmoxarifado();
+      if(typeof navegar === "function"){
+        navegar("almoxarifado");
+      }else if(typeof showView === "function"){
+        showView("almoxarifado");
+      }else{
+        document.querySelectorAll(".view").forEach(v=>v.classList.add("hidden"));
+        document.getElementById("almoxarifado")?.classList.remove("hidden");
+      }
+      setTimeout(()=>{
+        try{ renderAlmoxarifado(); }catch(e){}
+        document.getElementById("almoxarifado")?.scrollIntoView({behavior:"smooth", block:"start"});
+      }, 80);
+    }catch(e){
+      console.warn("v86 pós-salvar almox", e);
+    }
+  };
+
+  document.addEventListener("click", function(ev){
+    const modal = document.getElementById("modal");
+    if(!modal || modal.classList.contains("hidden")) return;
+    const card = modal.querySelector(".modal-card[data-almox-v86='1']");
+    if(card && ev.target === modal){
+      fecharModalAlmoxarifado();
+    }
+  });
+})();
+
+</script>
 </body>
 </html>
