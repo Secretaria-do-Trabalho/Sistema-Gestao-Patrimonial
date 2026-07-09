@@ -2857,6 +2857,50 @@ img,svg,canvas{
   color:#c65300;
 }
 
+
+/* v92 - ajustes de perfil e sincronização do Almoxarifado */
+#almoxBtnForcarBaseV92{
+  background:#0f8f46!important;
+  color:#fff!important;
+  border-color:#0f8f46!important;
+}
+.profile-avatar.only-initials,
+.profile-avatar-big.only-initials{
+  background:linear-gradient(135deg,var(--verde),var(--azul));
+}
+
+
+/* v93 - salvamento do Almoxarifado compatível com tabela enxuta */
+#almoxBtnForcarBaseV93{
+  background:#0f8f46!important;
+  color:#fff!important;
+  border-color:#0f8f46!important;
+}
+#almoxStatusBaseV93{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 11px;
+  border-radius:999px;
+  background:#e8f8ee;
+  color:#04753b;
+  font-size:12px;
+  font-weight:900;
+}
+#almoxStatusBaseV93.off{
+  background:#fff4e6;
+  color:#c65300;
+}
+
+
+/* v94 - Limpeza visual do Almoxarifado */
+#almoxDbBadgeV91,
+#almoxStatusBaseV93,
+#almoxBtnForcarBaseV92,
+#almoxBtnForcarBaseV93{
+  display:none!important;
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -13638,6 +13682,873 @@ function depAcumuladaTotalAteMesAnterior(){
 
   // Tenta carregar ao abrir, e carrega de verdade após login/sincronização.
   setTimeout(()=>{ try{ carregarAlmoxarifado(); renderAlmoxarifado(); }catch(e){} }, 300);
+})();
+
+</script>
+
+<script>
+
+(function(){
+  // v92
+  // 1) Remove foto padrão fixa: cada usuário sem foto fica com iniciais.
+  // 2) Reforça o Almoxarifado na base: carrega, compara local x Supabase e permite enviar local para base.
+
+  const LS_ALMOX_V92 = "almoxarifadoSGP_v1";
+  let almoxSupabaseDisponivelV92 = false;
+  let carregandoAlmoxV92 = false;
+  let almoxAutoJaRodouV92 = false;
+
+  function emailPerfilV92(){
+    return String(usuarioAtual?.email || "local").trim().toLowerCase();
+  }
+
+  window.chaveFotoPerfil = function(){
+    return "fotoPerfilControleSET_" + emailPerfilV92();
+  };
+
+  window.fotoPerfilAtual = function(){
+    // Sem foto padrão global. A foto precisa ser do usuário logado/navegador.
+    return localStorage.getItem(chaveFotoPerfil()) || "";
+  };
+
+  window.avatarHtml = function(){
+    const foto = fotoPerfilAtual();
+    return foto ? `<img src="${foto}" alt="Foto do perfil">` : iniciaisUsuario();
+  };
+
+  const atualizarResumoPerfilV92 = window.atualizarResumoPerfil;
+  window.atualizarResumoPerfil = function(){
+    if(typeof atualizarResumoPerfilV92 === "function"){
+      atualizarResumoPerfilV92();
+    }
+    const avatarTop = document.getElementById("profileAvatarTop");
+    const avatarBig = document.getElementById("profileAvatarBig");
+    if(!fotoPerfilAtual()){
+      avatarTop?.classList?.add("only-initials");
+      avatarBig?.classList?.add("only-initials");
+      if(avatarTop) avatarTop.textContent = iniciaisUsuario();
+      if(avatarBig) avatarBig.textContent = iniciaisUsuario();
+    }else{
+      avatarTop?.classList?.remove("only-initials");
+      avatarBig?.classList?.remove("only-initials");
+    }
+  };
+
+  window.alterarFotoPerfil = function(event){
+    const file = event.target.files?.[0];
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = ()=>{
+      localStorage.setItem(chaveFotoPerfil(), reader.result);
+      atualizarResumoPerfil();
+      abrirPerfil();
+      event.target.value = "";
+    };
+    reader.readAsDataURL(file);
+  };
+
+  window.removerFotoPerfil = function(){
+    localStorage.removeItem(chaveFotoPerfil());
+    atualizarResumoPerfil();
+    abrirPerfil();
+  };
+
+  function chaveAlmoxV92(mes=mesSelecionado, ano=anoSelecionado){
+    return `${ano}-${String(Number(mes)+1).padStart(2,"0")}`;
+  }
+
+  function parseChaveAlmoxV92(chave){
+    const m = String(chave || "").match(/^(\d{4})-(\d{2})$/);
+    if(!m) return {ano: anoSelecionado, mes: mesSelecionado};
+    return {ano: Number(m[1]), mes: Math.max(0, Number(m[2]) - 1)};
+  }
+
+  function moedaAlmoxV92(valor){
+    try{
+      if(typeof normalizarMoedaAlmoxV90 === "function") return normalizarMoedaAlmoxV90(valor);
+      if(typeof normalizarMoedaAlmoxV84 === "function") return normalizarMoedaAlmoxV84(valor);
+    }catch(e){}
+    if(valor === null || valor === undefined || valor === "") return 0;
+    if(typeof valor === "number") return Math.round(valor * 100) / 100;
+    let s = String(valor).trim().replace(/[R$\s]/g, "");
+    let n = 0;
+    if(s.includes(",")){
+      n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+    }else if(s.includes(".")){
+      const partes = s.split(".");
+      n = (partes.length === 2 && partes[1].length <= 2) ? parseFloat(s) : parseFloat(s.replace(/\./g, ""));
+    }else{
+      n = parseFloat(s) || 0;
+      if(/^\d+$/.test(s)){
+        const deveVirarCentavos = s.length >= 6 || (s.length >= 5 && s.endsWith("00"));
+        if(deveVirarCentavos) n = n / 100;
+      }
+    }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function qtdAlmoxV92(valor){
+    if(valor === null || valor === undefined || valor === "") return 0;
+    if(typeof valor === "number") return Math.round(valor * 100) / 100;
+    let n = 0;
+    try{ n = parseNumeroBR(valor); }catch(e){ n = Number(String(valor).replace(",", ".")); }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function normalizarItemAlmoxV92(item){
+    const i = {...(item || {})};
+    i.codigo = String(i.codigo || "").trim();
+    i.material = String(i.material || "").trim();
+    i.unidade = String(i.unidade || "").trim();
+    i.estoqueAnterior = qtdAlmoxV92(i.estoqueAnterior);
+    i.qtdEntrada = qtdAlmoxV92(i.qtdEntrada);
+    i.qtdSaida = qtdAlmoxV92(i.qtdSaida);
+    i.estoqueAtual = qtdAlmoxV92(i.estoqueAtual);
+    i.valorAnterior = moedaAlmoxV92(i.valorAnterior);
+    i.valorEntrada = moedaAlmoxV92(i.valorEntrada);
+    i.valorSaida = moedaAlmoxV92(i.valorSaida);
+    i.valorEstoque = moedaAlmoxV92(i.valorEstoque);
+    if((i.qtdEntrada > 0 || i.valorEntrada > 0) && !i.tipoEntrada) i.tipoEntrada = "notaFiscal";
+    if((i.qtdSaida > 0 || i.valorSaida > 0) && !i.tipoSaida) i.tipoSaida = "consumo";
+    if(!(i.qtdEntrada > 0 || i.valorEntrada > 0)) i.tipoEntrada = i.tipoEntrada || "";
+    if(!(i.qtdSaida > 0 || i.valorSaida > 0)) i.tipoSaida = i.tipoSaida || "";
+    return i;
+  }
+
+  function resumoAlmoxV92(reg){
+    const r = {
+      quantidadeItens:0, saldoAnterior:0,
+      entradaNotaFiscal:0, entradaDevolucao:0, entradaDoacao:0, entradaInventario:0, entradas:0,
+      saidaBaixa:0, saidaDoacao:0, consumo:0, saidaInventario:0, saidas:0,
+      valorEstoque:0, saldoFinal:0, saldoFormula:0, ajustes:0
+    };
+    if(!reg || !Array.isArray(reg.itens)) return r;
+    const itens = reg.itens.map(normalizarItemAlmoxV92);
+    r.quantidadeItens = itens.length;
+    itens.forEach(i=>{
+      r.saldoAnterior += Number(i.valorAnterior || 0);
+      r.valorEstoque += Number(i.valorEstoque || 0);
+      r.saldoFinal += Number(i.valorEstoque || 0);
+      if(i.valorEntrada || i.qtdEntrada){
+        const tipo = i.tipoEntrada || "notaFiscal";
+        if(tipo === "devolucao") r.entradaDevolucao += Number(i.valorEntrada || 0);
+        else if(tipo === "doacao") r.entradaDoacao += Number(i.valorEntrada || 0);
+        else if(tipo === "inventario") r.entradaInventario += Number(i.valorEntrada || 0);
+        else r.entradaNotaFiscal += Number(i.valorEntrada || 0);
+      }
+      if(i.valorSaida || i.qtdSaida){
+        const tipo = i.tipoSaida || "consumo";
+        if(tipo === "baixa") r.saidaBaixa += Number(i.valorSaida || 0);
+        else if(tipo === "doacao") r.saidaDoacao += Number(i.valorSaida || 0);
+        else if(tipo === "inventario") r.saidaInventario += Number(i.valorSaida || 0);
+        else r.consumo += Number(i.valorSaida || 0);
+      }
+    });
+    r.entradas = r.entradaNotaFiscal + r.entradaDevolucao + r.entradaDoacao + r.entradaInventario;
+    r.saidas = r.saidaBaixa + r.saidaDoacao + r.consumo + r.saidaInventario;
+    r.saldoFormula = r.saldoAnterior + r.entradas - r.saidas;
+    r.ajustes = r.saldoFinal - r.saldoFormula;
+    Object.keys(r).forEach(k=>{ if(typeof r[k] === "number") r[k] = Math.round(r[k] * 100) / 100; });
+    return r;
+  }
+
+  function normalizarRegistroAlmoxV92(reg){
+    const chave = reg?.chave || reg?.competencia || chaveAlmoxV92(reg?.mes ?? mesSelecionado, reg?.ano ?? anoSelecionado);
+    const partes = parseChaveAlmoxV92(chave);
+    const base = {
+      ...(reg || {}),
+      chave,
+      competencia: reg?.competenciaTexto || reg?.competencia_display || competenciaTexto(partes.mes, partes.ano),
+      ano: Number(reg?.ano ?? partes.ano),
+      mes: Number(reg?.mes ?? partes.mes),
+      nomeArquivo: reg?.nomeArquivo || reg?.nome_arquivo || "",
+      responsavel: reg?.responsavel || "",
+      observacoes: reg?.observacoes || "",
+      status: reg?.status || "Em conferência",
+      itens: Array.isArray(reg?.itens) ? reg.itens.map(normalizarItemAlmoxV92) : []
+    };
+    Object.assign(base, resumoAlmoxV92(base));
+    return base;
+  }
+
+  function locaisAlmoxV92(){
+    try{
+      const raw = localStorage.getItem(LS_ALMOX_V92);
+      return raw ? JSON.parse(raw).map(normalizarRegistroAlmoxV92) : [];
+    }catch(e){
+      console.warn("Erro lendo Almox local", e);
+      return [];
+    }
+  }
+
+  function salvarListaLocalAlmoxV92(lista){
+    almoxarifadoAnexos = (lista || []).map(normalizarRegistroAlmoxV92);
+    localStorage.setItem(LS_ALMOX_V92, JSON.stringify(almoxarifadoAnexos));
+  }
+
+  function mapRowAlmoxV92(row){
+    const partes = parseChaveAlmoxV92(row.competencia);
+    const reg = normalizarRegistroAlmoxV92({
+      supabaseId: row.id,
+      chave: row.competencia,
+      competencia: competenciaTexto(Number(row.mes ?? partes.mes), Number(row.ano ?? partes.ano)),
+      ano: Number(row.ano ?? partes.ano),
+      mes: Number(row.mes ?? partes.mes),
+      nomeArquivo: row.nome_arquivo || "",
+      responsavel: row.responsavel || "",
+      observacoes: row.observacoes || "",
+      status: row.status || "Em conferência",
+      itens: Array.isArray(row.itens) ? row.itens : [],
+      importadoEm: row.criado_em || "",
+      atualizadoEm: row.atualizado_em || ""
+    });
+    reg.supabaseId = row.id;
+    return reg;
+  }
+
+  async function getSessionAlmoxV92(){
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if(error) throw error;
+    return session;
+  }
+
+  async function upsertAlmoxV92(reg){
+    const session = await getSessionAlmoxV92();
+    if(!session?.user) throw new Error("sem sessão Supabase");
+    const normal = normalizarRegistroAlmoxV92(reg);
+    const payload = {
+      competencia: normal.chave,
+      ano: Number(normal.ano),
+      mes: Number(normal.mes),
+      nome_arquivo: normal.nomeArquivo || null,
+      responsavel: normal.responsavel || null,
+      observacoes: normal.observacoes || null,
+      itens: normal.itens || [],
+      resumo: resumoAlmoxV92(normal),
+      status: normal.status || "Em conferência",
+      atualizado_por: usuarioAtual?.auth_user_id || session.user.id || null
+    };
+
+    const { data, error } = await supabaseClient
+      .from("almoxarifado_mensal")
+      .upsert(payload, { onConflict: "competencia" })
+      .select()
+      .single();
+
+    if(error) throw error;
+    return mapRowAlmoxV92(data);
+  }
+
+  window.salvarAlmoxarifadoSupabaseV91 = async function(reg){
+    const salvo = await upsertAlmoxV92(reg);
+    almoxSupabaseDisponivelV92 = true;
+    return salvo;
+  };
+
+  window.carregarAlmoxarifado = function(){
+    almoxarifadoAnexos = locaisAlmoxV92();
+  };
+
+  window.salvarAlmoxarifadoLocal = function(){
+    salvarListaLocalAlmoxV92(almoxarifadoAnexos || []);
+    setTimeout(()=>enviarAlmoxAtualParaBaseV92(false), 300);
+  };
+
+  window.anexoAlmoxarifadoCompetencia = function(mes=mesSelecionado, ano=anoSelecionado){
+    const chave = chaveAlmoxV92(mes, ano);
+    return (almoxarifadoAnexos || []).find(a=>a.chave === chave) || null;
+  };
+
+  async function carregarRemotosAlmoxV92(){
+    const { data, error } = await supabaseClient
+      .from("almoxarifado_mensal")
+      .select("*")
+      .order("ano", { ascending:true })
+      .order("mes", { ascending:true });
+    if(error) throw error;
+    return (data || []).map(mapRowAlmoxV92);
+  }
+
+  window.carregarAlmoxarifadoSupabaseV91 = async function(){
+    return carregarAlmoxarifadoSupabaseV92();
+  };
+
+  window.carregarAlmoxarifadoSupabaseV92 = async function(){
+    if(carregandoAlmoxV92) return;
+    carregandoAlmoxV92 = true;
+
+    try{
+      const session = await getSessionAlmoxV92();
+      if(!session?.user){
+        carregarAlmoxarifado();
+        almoxSupabaseDisponivelV92 = false;
+        return;
+      }
+
+      const locais = locaisAlmoxV92();
+      const remotos = await carregarRemotosAlmoxV92();
+      const mapa = new Map();
+      remotos.forEach(r=>mapa.set(r.chave, r));
+
+      // Migração/correção: se há item local e a base está sem a competência, vazia,
+      // ou menor/zerada, usa o local para atualizar a base. Isso resolve dados que ficaram só na máquina.
+      for(const local of locais){
+        const loc = normalizarRegistroAlmoxV92(local);
+        const remoto = mapa.get(loc.chave);
+        const resLocal = resumoAlmoxV92(loc);
+        const resRemoto = resumoAlmoxV92(remoto);
+        const localTemDados = resLocal.quantidadeItens > 0 && resLocal.valorEstoque > 0;
+        const baseAusenteOuMenor =
+          !remoto ||
+          resRemoto.quantidadeItens === 0 ||
+          resRemoto.valorEstoque === 0 ||
+          (resLocal.quantidadeItens >= resRemoto.quantidadeItens && Math.abs(resLocal.valorEstoque - resRemoto.valorEstoque) > 0.01 && resLocal.valorEstoque > resRemoto.valorEstoque);
+
+        if(localTemDados && baseAusenteOuMenor){
+          try{
+            const salvo = await upsertAlmoxV92(loc);
+            mapa.set(salvo.chave, salvo);
+          }catch(e){
+            console.warn("Falha ao enviar Almox local para base:", e);
+          }
+        }
+      }
+
+      const lista = Array.from(mapa.values()).sort((a,b)=>(a.ano-b.ano) || (a.mes-b.mes));
+      salvarListaLocalAlmoxV92(lista);
+      almoxSupabaseDisponivelV92 = true;
+      setStatusBanco?.("Banco: conectado", "ok");
+    }catch(e){
+      console.warn("Almoxarifado: erro ao sincronizar Supabase", e);
+      carregarAlmoxarifado();
+      almoxSupabaseDisponivelV92 = false;
+      setStatusBanco?.("Banco: erro/RLS Almoxarifado", "off");
+    }finally{
+      carregandoAlmoxV92 = false;
+    }
+  };
+
+  async function enviarAlmoxAtualParaBaseV92(mostrarAlerta=true){
+    try{
+      const chave = chaveAlmoxV92();
+      const locais = locaisAlmoxV92();
+      let reg = locais.find(a=>a.chave === chave) || anexoAlmoxarifadoCompetencia();
+      if(!reg || !Array.isArray(reg.itens) || reg.itens.length === 0){
+        if(mostrarAlerta) alert("Não há itens locais do Almoxarifado nesta competência para enviar.");
+        return;
+      }
+      const salvo = await upsertAlmoxV92(reg);
+      const lista = locais.filter(a=>a.chave !== salvo.chave);
+      lista.push(salvo);
+      salvarListaLocalAlmoxV92(lista.sort((a,b)=>(a.ano-b.ano) || (a.mes-b.mes)));
+      almoxSupabaseDisponivelV92 = true;
+      renderTudo();
+      if(mostrarAlerta){
+        const r = resumoAlmoxV92(salvo);
+        alert(`Almoxarifado de ${competenciaAtualTexto()} enviado para a base compartilhada.\nItens: ${r.quantidadeItens}\nValor em estoque: ${moeda(r.valorEstoque)}`);
+      }
+    }catch(e){
+      console.error(e);
+      if(mostrarAlerta) alert("Erro ao enviar Almoxarifado para a base: " + (e.message || e));
+    }
+  }
+
+  window.enviarAlmoxLocalParaBaseV92 = enviarAlmoxAtualParaBaseV92;
+
+  const importarAnteriorV92 = window.importarTemplateAlmoxarifado;
+  window.importarTemplateAlmoxarifado = async function(event){
+    if(typeof importarAnteriorV92 === "function"){
+      await importarAnteriorV92(event);
+      await carregarAlmoxarifadoSupabaseV92();
+      renderTudo();
+      return;
+    }
+  };
+
+  const sincronizarAnteriorV92 = window.sincronizarDoSupabase;
+  window.sincronizarDoSupabase = async function(preservarLocal=false){
+    if(typeof sincronizarAnteriorV92 === "function"){
+      await sincronizarAnteriorV92(preservarLocal);
+    }
+    await carregarAlmoxarifadoSupabaseV92();
+  };
+
+  const renderAlmoxAnteriorV92 = window.renderAlmoxarifado;
+  window.renderAlmoxarifado = function(){
+    if(typeof renderAlmoxAnteriorV92 === "function") renderAlmoxAnteriorV92();
+
+    const filtros = document.querySelector("#almoxarifado .almox-filters");
+    if(filtros && !document.getElementById("almoxBtnForcarBaseV92")){
+      const btn = document.createElement("button");
+      btn.id = "almoxBtnForcarBaseV92";
+      btn.type = "button";
+      btn.textContent = "Salvar na base";
+      btn.setAttribute("data-edit-action", "");
+      btn.onclick = ()=>enviarAlmoxLocalParaBaseV92(true);
+      filtros.appendChild(btn);
+    }
+
+    const badge = document.getElementById("almoxDbBadgeV91");
+    if(badge){
+      badge.classList.toggle("off", !almoxSupabaseDisponivelV92);
+      badge.textContent = almoxSupabaseDisponivelV92 ? "Base compartilhada" : "Local até conectar";
+    }
+  };
+
+  const renderTudoAnteriorV92 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV92();
+    try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render Almox v92", e); }
+    try{ atualizarResumoPerfil(); }catch(e){}
+  };
+
+  // Reforço pós-login: se o app abrir, tenta sincronizar Almox uma vez automaticamente.
+  function autoSyncAlmoxQuandoLogarV92(){
+    if(almoxAutoJaRodouV92) return;
+    const appAberto = !document.getElementById("app")?.classList.contains("hidden");
+    if(appAberto && usuarioAtual && usuarioAtual.email && usuarioAtual.email !== "COAFI"){
+      almoxAutoJaRodouV92 = true;
+      carregarAlmoxarifadoSupabaseV92().then(()=>renderTudo()).catch(()=>{});
+    }
+  }
+
+  setInterval(autoSyncAlmoxQuandoLogarV92, 1500);
+  setTimeout(()=>{ try{ atualizarResumoPerfil(); renderAlmoxarifado(); }catch(e){} }, 500);
+})();
+
+</script>
+
+<script>
+
+(function(){
+  // v93 - Corrige salvamento do Almoxarifado quando a tabela almoxarifado_mensal está com poucas colunas.
+  // O sistema agora salva usando apenas colunas básicas: competencia, ano, mes, nome_arquivo, itens, resumo.
+  // Assim evita erro quando a tabela não tem responsavel/observacoes/status/atualizado_por.
+
+  const LS_ALMOX_V93 = "almoxarifadoSGP_v1";
+  let almoxBaseOkV93 = false;
+  let carregandoV93 = false;
+
+  function chaveV93(mes=mesSelecionado, ano=anoSelecionado){
+    return `${ano}-${String(Number(mes)+1).padStart(2,"0")}`;
+  }
+
+  function parseChaveV93(chave){
+    const m = String(chave || "").match(/^(\d{4})-(\d{2})$/);
+    if(!m) return {ano: anoSelecionado, mes: mesSelecionado};
+    return {ano: Number(m[1]), mes: Math.max(0, Number(m[2]) - 1)};
+  }
+
+  function moedaV93(v){
+    try{
+      if(typeof normalizarMoedaAlmoxV90 === "function") return normalizarMoedaAlmoxV90(v);
+      if(typeof normalizarMoedaAlmoxV84 === "function") return normalizarMoedaAlmoxV84(v);
+    }catch(e){}
+    if(v === null || v === undefined || v === "") return 0;
+    if(typeof v === "number") return Math.round(v * 100) / 100;
+    let s = String(v).trim().replace(/[R$\s]/g, "");
+    let n = 0;
+    if(s.includes(",")) n = parseFloat(s.replace(/\./g,"").replace(",","."));
+    else if(s.includes(".")){
+      const p = s.split(".");
+      n = (p.length === 2 && p[1].length <= 2) ? parseFloat(s) : parseFloat(s.replace(/\./g,""));
+    }else{
+      n = parseFloat(s) || 0;
+      if(/^\d+$/.test(s)){
+        const centavos = s.length >= 6 || (s.length >= 5 && s.endsWith("00"));
+        if(centavos) n = n/100;
+      }
+    }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function qtdV93(v){
+    if(v === null || v === undefined || v === "") return 0;
+    if(typeof v === "number") return Math.round(v * 100) / 100;
+    let n = 0;
+    try{ n = parseNumeroBR(v); }catch(e){ n = Number(String(v).replace(",", ".")); }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function itemV93(item){
+    const i = {...(item || {})};
+    i.codigo = String(i.codigo || "").trim();
+    i.material = String(i.material || "").trim();
+    i.unidade = String(i.unidade || "").trim();
+    i.estoqueAnterior = qtdV93(i.estoqueAnterior);
+    i.qtdEntrada = qtdV93(i.qtdEntrada);
+    i.qtdSaida = qtdV93(i.qtdSaida);
+    i.estoqueAtual = qtdV93(i.estoqueAtual);
+    i.valorAnterior = moedaV93(i.valorAnterior);
+    i.valorEntrada = moedaV93(i.valorEntrada);
+    i.valorSaida = moedaV93(i.valorSaida);
+    i.valorEstoque = moedaV93(i.valorEstoque);
+    if((i.qtdEntrada > 0 || i.valorEntrada > 0) && !i.tipoEntrada) i.tipoEntrada = "notaFiscal";
+    if((i.qtdSaida > 0 || i.valorSaida > 0) && !i.tipoSaida) i.tipoSaida = "consumo";
+    if(!(i.qtdEntrada > 0 || i.valorEntrada > 0)) i.tipoEntrada = i.tipoEntrada || "";
+    if(!(i.qtdSaida > 0 || i.valorSaida > 0)) i.tipoSaida = i.tipoSaida || "";
+    return i;
+  }
+
+  function resumoV93(reg){
+    const r = {
+      quantidadeItens:0,
+      saldoAnterior:0,
+      entradaNotaFiscal:0,
+      entradaDevolucao:0,
+      entradaDoacao:0,
+      entradaInventario:0,
+      entradas:0,
+      saidaBaixa:0,
+      saidaDoacao:0,
+      consumo:0,
+      saidaInventario:0,
+      saidas:0,
+      valorEstoque:0,
+      saldoFinal:0,
+      saldoFormula:0,
+      ajustes:0
+    };
+    if(!reg || !Array.isArray(reg.itens)) return r;
+    const itens = reg.itens.map(itemV93);
+    r.quantidadeItens = itens.length;
+    itens.forEach(i=>{
+      r.saldoAnterior += Number(i.valorAnterior || 0);
+      r.valorEstoque += Number(i.valorEstoque || 0);
+      r.saldoFinal += Number(i.valorEstoque || 0);
+
+      if(i.valorEntrada || i.qtdEntrada){
+        const tipo = i.tipoEntrada || "notaFiscal";
+        if(tipo === "devolucao") r.entradaDevolucao += Number(i.valorEntrada || 0);
+        else if(tipo === "doacao") r.entradaDoacao += Number(i.valorEntrada || 0);
+        else if(tipo === "inventario") r.entradaInventario += Number(i.valorEntrada || 0);
+        else r.entradaNotaFiscal += Number(i.valorEntrada || 0);
+      }
+
+      if(i.valorSaida || i.qtdSaida){
+        const tipo = i.tipoSaida || "consumo";
+        if(tipo === "baixa") r.saidaBaixa += Number(i.valorSaida || 0);
+        else if(tipo === "doacao") r.saidaDoacao += Number(i.valorSaida || 0);
+        else if(tipo === "inventario") r.saidaInventario += Number(i.valorSaida || 0);
+        else r.consumo += Number(i.valorSaida || 0);
+      }
+    });
+    r.entradas = r.entradaNotaFiscal + r.entradaDevolucao + r.entradaDoacao + r.entradaInventario;
+    r.saidas = r.saidaBaixa + r.saidaDoacao + r.consumo + r.saidaInventario;
+    r.saldoFormula = r.saldoAnterior + r.entradas - r.saidas;
+    r.ajustes = r.saldoFinal - r.saldoFormula;
+    Object.keys(r).forEach(k=>{ if(typeof r[k] === "number") r[k] = Math.round(r[k]*100)/100; });
+    return r;
+  }
+
+  function regV93(reg){
+    const chave = reg?.chave || reg?.competencia || chaveV93(reg?.mes ?? mesSelecionado, reg?.ano ?? anoSelecionado);
+    const partes = parseChaveV93(chave);
+    const normal = {
+      ...(reg || {}),
+      chave,
+      competencia: reg?.competenciaTexto || reg?.competencia_display || competenciaTexto(partes.mes, partes.ano),
+      ano: Number(reg?.ano ?? partes.ano),
+      mes: Number(reg?.mes ?? partes.mes),
+      nomeArquivo: reg?.nomeArquivo || reg?.nome_arquivo || "",
+      itens: Array.isArray(reg?.itens) ? reg.itens.map(itemV93) : []
+    };
+    Object.assign(normal, resumoV93(normal));
+    return normal;
+  }
+
+  function locaisV93(){
+    try{
+      const raw = localStorage.getItem(LS_ALMOX_V93);
+      return raw ? JSON.parse(raw).map(regV93) : [];
+    }catch(e){
+      console.warn("Erro lendo Almox local:", e);
+      return [];
+    }
+  }
+
+  function salvarLocalV93(lista){
+    almoxarifadoAnexos = (lista || []).map(regV93).sort((a,b)=>(a.ano-b.ano)||(a.mes-b.mes));
+    localStorage.setItem(LS_ALMOX_V93, JSON.stringify(almoxarifadoAnexos));
+  }
+
+  function mapRowV93(row){
+    return regV93({
+      supabaseId: row.id,
+      chave: row.competencia,
+      competencia: row.competencia,
+      ano: row.ano,
+      mes: row.mes,
+      nomeArquivo: row.nome_arquivo || "",
+      itens: Array.isArray(row.itens) ? row.itens : []
+    });
+  }
+
+  async function sessionV93(){
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if(error) throw error;
+    if(!session?.user) throw new Error("sem login no Supabase");
+    return session;
+  }
+
+  async function salvarRegBaseV93(reg){
+    await sessionV93();
+
+    const normal = regV93(reg);
+    const payload = {
+      competencia: normal.chave,
+      ano: Number(normal.ano),
+      mes: Number(normal.mes),
+      nome_arquivo: normal.nomeArquivo || null,
+      itens: normal.itens || [],
+      resumo: resumoV93(normal)
+    };
+
+    // Sem depender de constraint unique: procura por competencia e decide insert/update.
+    const { data: existe, error: buscaErro } = await supabaseClient
+      .from("almoxarifado_mensal")
+      .select("id")
+      .eq("competencia", normal.chave)
+      .maybeSingle();
+
+    if(buscaErro) throw buscaErro;
+
+    let resp;
+    if(existe?.id){
+      resp = await supabaseClient
+        .from("almoxarifado_mensal")
+        .update(payload)
+        .eq("id", existe.id)
+        .select("*")
+        .single();
+    }else{
+      resp = await supabaseClient
+        .from("almoxarifado_mensal")
+        .insert(payload)
+        .select("*")
+        .single();
+    }
+
+    if(resp.error) throw resp.error;
+    almoxBaseOkV93 = true;
+    return mapRowV93(resp.data);
+  }
+
+  window.salvarAlmoxarifadoSupabaseV91 = salvarRegBaseV93;
+  window.salvarAlmoxarifadoSupabaseV93 = salvarRegBaseV93;
+
+  window.carregarAlmoxarifado = function(){
+    almoxarifadoAnexos = locaisV93();
+  };
+
+  window.salvarAlmoxarifadoLocal = function(){
+    salvarLocalV93(almoxarifadoAnexos || []);
+  };
+
+  window.anexoAlmoxarifadoCompetencia = function(mes=mesSelecionado, ano=anoSelecionado){
+    const chave = chaveV93(mes, ano);
+    return (almoxarifadoAnexos || []).find(a=>a.chave === chave) || null;
+  };
+
+  window.resumoAlmoxCompetencia = function(mes=mesSelecionado, ano=anoSelecionado){
+    return resumoV93(anexoAlmoxarifadoCompetencia(mes, ano));
+  };
+
+  async function carregarBaseV93(){
+    await sessionV93();
+
+    const { data, error } = await supabaseClient
+      .from("almoxarifado_mensal")
+      .select("*")
+      .order("ano", { ascending:true })
+      .order("mes", { ascending:true });
+
+    if(error) throw error;
+    return (data || []).map(mapRowV93);
+  }
+
+  window.carregarAlmoxarifadoSupabaseV91 =
+  window.carregarAlmoxarifadoSupabaseV92 =
+  window.carregarAlmoxarifadoSupabaseV93 = async function(){
+    if(carregandoV93) return;
+    carregandoV93 = true;
+
+    try{
+      const locais = locaisV93();
+      const remotos = await carregarBaseV93();
+
+      const mapa = new Map();
+      remotos.forEach(r=>mapa.set(r.chave, r));
+
+      // Migra local para base quando ainda não há registro remoto ou quando o remoto está zerado.
+      for(const local of locais){
+        const loc = regV93(local);
+        const rem = mapa.get(loc.chave);
+        const rl = resumoV93(loc);
+        const rr = resumoV93(rem);
+        if(rl.quantidadeItens > 0 && (!rem || rr.quantidadeItens === 0 || rr.valorEstoque === 0)){
+          try{
+            const salvo = await salvarRegBaseV93(loc);
+            mapa.set(salvo.chave, salvo);
+          }catch(e){
+            console.warn("Falha migrando Almox local para base:", e);
+          }
+        }
+      }
+
+      salvarLocalV93(Array.from(mapa.values()));
+      almoxBaseOkV93 = true;
+      setStatusBanco?.("Banco: conectado", "ok");
+    }catch(e){
+      console.warn("Erro ao carregar Almoxarifado da base:", e);
+      almoxBaseOkV93 = false;
+      carregarAlmoxarifado();
+      setStatusBanco?.("Banco: erro Almoxarifado", "off");
+    }finally{
+      carregandoV93 = false;
+    }
+  };
+
+  window.enviarAlmoxLocalParaBaseV92 =
+  window.enviarAlmoxLocalParaBaseV93 = async function(mostrarAlerta=true){
+    try{
+      const chave = chaveV93();
+      const lista = locaisV93();
+      const reg = lista.find(a=>a.chave === chave) || anexoAlmoxarifadoCompetencia();
+      if(!reg || !Array.isArray(reg.itens) || reg.itens.length === 0){
+        alert("Não achei itens do Almoxarifado nesta competência para enviar.");
+        return;
+      }
+
+      const salvo = await salvarRegBaseV93(reg);
+      const nova = lista.filter(a=>a.chave !== salvo.chave);
+      nova.push(salvo);
+      salvarLocalV93(nova);
+      renderTudo();
+
+      if(mostrarAlerta){
+        const r = resumoV93(salvo);
+        alert(`Agora salvou na base compartilhada.\nCompetência: ${competenciaAtualTexto()}\nItens: ${r.quantidadeItens}\nValor em estoque: ${moeda(r.valorEstoque)}\n\nConfira no Supabase: a tabela almoxarifado_mensal deve sair de 0 para 1 linha.`);
+      }
+    }catch(e){
+      console.error("Erro ao salvar Almoxarifado na base", e);
+      alert("Não salvou na base. O erro foi:\n\n" + (e.message || e) + "\n\nSe for erro de RLS/permissão, rode o script de policies de novo.");
+    }
+  };
+
+  const importarAnteriorV93 = window.importarTemplateAlmoxarifado;
+  window.importarTemplateAlmoxarifado = async function(event){
+    if(typeof importarAnteriorV93 === "function"){
+      await importarAnteriorV93(event);
+      await enviarAlmoxLocalParaBaseV93(false);
+      await carregarAlmoxarifadoSupabaseV93();
+      renderTudo();
+
+      const r = resumoAlmoxCompetencia();
+      alert(`Importação concluída e tentativa de salvar na base feita.\nItens: ${r.quantidadeItens}\nValor em estoque: ${moeda(r.valorEstoque)}\n\nConfira a tabela almoxarifado_mensal no Supabase.`);
+    }
+  };
+
+  const sincronizarAnteriorV93 = window.sincronizarDoSupabase;
+  window.sincronizarDoSupabase = async function(preservarLocal=false){
+    if(typeof sincronizarAnteriorV93 === "function"){
+      await sincronizarAnteriorV93(preservarLocal);
+    }
+    await carregarAlmoxarifadoSupabaseV93();
+  };
+
+  const renderAlmoxAnteriorV93 = window.renderAlmoxarifado;
+  window.renderAlmoxarifado = function(){
+    if(typeof renderAlmoxAnteriorV93 === "function") renderAlmoxAnteriorV93();
+
+    const filtros = document.querySelector("#almoxarifado .almox-filters");
+    if(filtros && !document.getElementById("almoxBtnForcarBaseV93")){
+      const btn = document.createElement("button");
+      btn.id = "almoxBtnForcarBaseV93";
+      btn.type = "button";
+      btn.textContent = "Salvar na base";
+      btn.setAttribute("data-edit-action", "");
+      btn.onclick = ()=>enviarAlmoxLocalParaBaseV93(true);
+      filtros.appendChild(btn);
+    }
+
+    const title = document.querySelector("#almoxarifado .title > div");
+    if(title && !document.getElementById("almoxStatusBaseV93")){
+      const b = document.createElement("span");
+      b.id = "almoxStatusBaseV93";
+      title.appendChild(b);
+    }
+    const badge = document.getElementById("almoxStatusBaseV93");
+    if(badge){
+      badge.classList.toggle("off", !almoxBaseOkV93);
+      badge.textContent = almoxBaseOkV93 ? "Base compartilhada" : "Ainda local / clique Salvar na base";
+    }
+  };
+
+  const renderTudoAnteriorV93 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV93();
+    try{ renderAlmoxarifado(); }catch(e){}
+  };
+
+  setTimeout(()=>{ 
+    carregarAlmoxarifadoSupabaseV93().then(()=>renderTudo()).catch(()=>{});
+  }, 1200);
+})();
+
+</script>
+
+<script>
+
+(function(){
+  // v94 - Remove visualmente os status/botões técnicos do Almoxarifado.
+  // O salvamento automático/importação na base continua existindo por trás.
+
+  function limparVisualAlmoxV94(){
+    ["almoxDbBadgeV91","almoxStatusBaseV93","almoxBtnForcarBaseV92","almoxBtnForcarBaseV93"].forEach(id=>{
+      const el = document.getElementById(id);
+      if(el) el.remove();
+    });
+
+    const filtros = document.querySelector("#almoxarifado .almox-filters");
+    if(filtros){
+      filtros.querySelectorAll("button").forEach(btn=>{
+        const txt = (btn.textContent || "").trim().toLowerCase();
+        if(txt === "salvar na base"){
+          btn.remove();
+        }
+      });
+    }
+
+    const titulo = document.querySelector("#almoxarifado .title > div");
+    if(titulo){
+      titulo.querySelectorAll("span, .almox-db-badge").forEach(el=>{
+        const txt = (el.textContent || "").trim().toLowerCase();
+        if(txt === "local até conectar" || txt === "base compartilhada" || txt.includes("ainda local")){
+          el.remove();
+        }
+      });
+    }
+  }
+
+  const renderAlmoxAnteriorV94 = window.renderAlmoxarifado;
+  window.renderAlmoxarifado = function(){
+    if(typeof renderAlmoxAnteriorV94 === "function") renderAlmoxAnteriorV94();
+    limparVisualAlmoxV94();
+  };
+
+  const renderTudoAnteriorV94 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV94();
+    setTimeout(limparVisualAlmoxV94, 0);
+  };
+
+  setInterval(limparVisualAlmoxV94, 1200);
+  setTimeout(limparVisualAlmoxV94, 200);
 })();
 
 </script>
