@@ -2762,6 +2762,49 @@ img,svg,canvas{
   }
 }
 
+
+/* v85 - ações editar/excluir no Almoxarifado */
+.almox-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  justify-content:flex-start;
+}
+.almox-actions button{
+  min-height:34px;
+  padding:8px 10px;
+  border-radius:10px;
+  font-size:12px;
+}
+.almox-actions .danger{
+  background:#fff0f3!important;
+  color:#be123c!important;
+  border:1px solid #fecdd3!important;
+}
+.almox-edit-grid{
+  display:grid;
+  grid-template-columns:repeat(2,minmax(180px,1fr));
+  gap:12px;
+}
+.almox-edit-grid label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  font-weight:900;
+  color:var(--texto);
+}
+.almox-edit-grid label span{
+  color:var(--muted);
+  text-transform:uppercase;
+  font-size:11px;
+}
+.almox-edit-full{
+  grid-column:1/-1;
+}
+@media(max-width:700px){
+  .almox-edit-grid{grid-template-columns:1fr}
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -11281,6 +11324,261 @@ function depAcumuladaTotalAteMesAnterior(){
   window.renderTudo = function(){
     renderTudoAnteriorV84();
     try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render almox v84", e); }
+  };
+})();
+
+</script>
+
+<script>
+
+(function(){
+  function almoxMoedaV85(v){
+    try{
+      if(typeof normalizarMoedaAlmoxV84 === "function") return normalizarMoedaAlmoxV84(v);
+    }catch(e){}
+    const n = parseNumeroBR(v);
+    return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+  }
+  function almoxQtdV85(v){
+    try{
+      if(typeof normalizarQtdAlmoxV84 === "function") return normalizarQtdAlmoxV84(v);
+    }catch(e){}
+    const n = parseNumeroBR(v);
+    return Math.round((Number.isFinite(n) ? n : 0) * 100) / 100;
+  }
+  function almoxRegistroAtualV85(){
+    carregarAlmoxarifado();
+    const chave = chaveAlmoxarifado();
+    let idx = almoxarifadoAnexos.findIndex(a=>a.chave === chave);
+    if(idx < 0){
+      almoxarifadoAnexos.push({
+        chave,
+        mes: mesSelecionado,
+        ano: anoSelecionado,
+        nomeArquivo: "Edição manual",
+        importadoEm: new Date().toISOString(),
+        itens: [],
+        quantidadeItens: 0,
+        valorEstoque: 0,
+        entradas: 0,
+        consumo: 0,
+        saldoAnterior: 0,
+        entradaNotaFiscal: 0,
+        entradaDevolucao: 0,
+        entradaDoacao: 0,
+        entradaInventario: 0,
+        saidaBaixa: 0,
+        saidaDoacao: 0,
+        saidaInventario: 0,
+        ajustes: 0,
+        saldoFinal: 0
+      });
+      idx = almoxarifadoAnexos.length - 1;
+    }
+    if(!Array.isArray(almoxarifadoAnexos[idx].itens)) almoxarifadoAnexos[idx].itens = [];
+    return {reg: almoxarifadoAnexos[idx], idx};
+  }
+  function almoxAtualizarTotaisV85(reg){
+    if(!reg || !Array.isArray(reg.itens)) return reg;
+    reg.quantidadeItens = reg.itens.length;
+    reg.valorEstoque = Math.round(reg.itens.reduce((s,i)=>s+Number(i.valorEstoque||0),0)*100)/100;
+    const totalEntrada = Math.round(reg.itens.reduce((s,i)=>s+Number(i.valorEntrada||0),0)*100)/100;
+    const totalSaida = Math.round(reg.itens.reduce((s,i)=>s+Number(i.valorSaida||0),0)*100)/100;
+    if(!Number(reg.entradas)) reg.entradas = totalEntrada;
+    if(!Number(reg.consumo)) reg.consumo = totalSaida;
+    if(!Number(reg.saldoFinal)) reg.saldoFinal = reg.valorEstoque;
+    return reg;
+  }
+  function almoxItemPorIndiceV85(indice){
+    const {reg} = almoxRegistroAtualV85();
+    const idx = Number(indice);
+    if(!reg.itens[idx]) return null;
+    return {reg, item: reg.itens[idx], idx};
+  }
+
+  window.editarItemAlmoxarifado = function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    const achado = almoxItemPorIndiceV85(indice);
+    if(!achado){
+      alert("Item do Almoxarifado não encontrado.");
+      return;
+    }
+    const i = achado.item;
+
+    const htmlForm = `
+      <div class="modal-card large">
+        <button class="x" onclick="fecharModal()">×</button>
+        <h2>Editar item do Almoxarifado</h2>
+        <p style="color:var(--muted);margin-top:-6px">Competência ${competenciaAtualTexto()}</p>
+        <div class="almox-edit-grid">
+          <label><span>Código</span><input id="almoxEditCodigo" value="${String(i.codigo || "").replace(/"/g,"&quot;")}"></label>
+          <label><span>Unidade</span><input id="almoxEditUnidade" value="${String(i.unidade || "").replace(/"/g,"&quot;")}"></label>
+          <label class="almox-edit-full"><span>Material</span><textarea id="almoxEditMaterial" rows="3">${String(i.material || "")}</textarea></label>
+          <label><span>Estoque anterior</span><input id="almoxEditEstAnt" value="${i.estoqueAnterior ?? 0}"></label>
+          <label><span>Valor anterior</span><input id="almoxEditVlrAnt" value="${moeda(almoxMoedaV85(i.valorAnterior))}"></label>
+          <label><span>Qtd entrada</span><input id="almoxEditQtdEnt" value="${i.qtdEntrada ?? 0}"></label>
+          <label><span>Valor entrada</span><input id="almoxEditVlrEnt" value="${moeda(almoxMoedaV85(i.valorEntrada))}"></label>
+          <label><span>Qtd saída</span><input id="almoxEditQtdSai" value="${i.qtdSaida ?? 0}"></label>
+          <label><span>Valor saída</span><input id="almoxEditVlrSai" value="${moeda(almoxMoedaV85(i.valorSaida))}"></label>
+          <label><span>Estoque atual</span><input id="almoxEditEstAtual" value="${i.estoqueAtual ?? 0}"></label>
+          <label><span>Valor estoque</span><input id="almoxEditVlrEstoque" value="${moeda(almoxMoedaV85(i.valorEstoque))}"></label>
+        </div>
+        <div class="form-actions" style="margin-top:18px">
+          <button onclick="fecharModal()">Cancelar</button>
+          <button class="primary" onclick="salvarEdicaoItemAlmoxarifado(${achado.idx})">Salvar alteração</button>
+        </div>
+      </div>
+    `;
+
+    let modal = document.getElementById("modal");
+    if(!modal){
+      modal = document.createElement("div");
+      modal.id = "modal";
+      modal.className = "modal hidden";
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = htmlForm;
+    modal.classList.remove("hidden");
+  };
+
+  window.salvarEdicaoItemAlmoxarifado = function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    const achado = almoxItemPorIndiceV85(indice);
+    if(!achado){
+      alert("Item do Almoxarifado não encontrado.");
+      return;
+    }
+    const i = achado.item;
+    i.codigo = document.getElementById("almoxEditCodigo")?.value?.trim() || "";
+    i.material = document.getElementById("almoxEditMaterial")?.value?.trim() || "";
+    i.unidade = document.getElementById("almoxEditUnidade")?.value?.trim() || "";
+    i.estoqueAnterior = almoxQtdV85(document.getElementById("almoxEditEstAnt")?.value || 0);
+    i.valorAnterior = almoxMoedaV85(document.getElementById("almoxEditVlrAnt")?.value || 0);
+    i.qtdEntrada = almoxQtdV85(document.getElementById("almoxEditQtdEnt")?.value || 0);
+    i.valorEntrada = almoxMoedaV85(document.getElementById("almoxEditVlrEnt")?.value || 0);
+    i.qtdSaida = almoxQtdV85(document.getElementById("almoxEditQtdSai")?.value || 0);
+    i.valorSaida = almoxMoedaV85(document.getElementById("almoxEditVlrSai")?.value || 0);
+    i.estoqueAtual = almoxQtdV85(document.getElementById("almoxEditEstAtual")?.value || 0);
+    i.valorEstoque = almoxMoedaV85(document.getElementById("almoxEditVlrEstoque")?.value || 0);
+    achado.reg.itens[achado.idx] = i;
+    almoxAtualizarTotaisV85(achado.reg);
+    salvarAlmoxarifadoLocal();
+    fecharModal();
+    renderTudo();
+  };
+
+  window.excluirItemAlmoxarifado = function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    const achado = almoxItemPorIndiceV85(indice);
+    if(!achado){
+      alert("Item do Almoxarifado não encontrado.");
+      return;
+    }
+    const nome = achado.item.material || achado.item.codigo || "item";
+    if(!confirm(`Excluir o item do Almoxarifado?\n\n${nome}`)) return;
+    achado.reg.itens.splice(achado.idx, 1);
+    almoxAtualizarTotaisV85(achado.reg);
+    salvarAlmoxarifadoLocal();
+    renderTudo();
+  };
+
+  window.excluirAlmoxarifadoCompetencia = function(){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    carregarAlmoxarifado();
+    const chave = chaveAlmoxarifado();
+    const idx = almoxarifadoAnexos.findIndex(a=>a.chave === chave);
+    if(idx < 0){
+      alert("Não existe Almoxarifado importado nesta competência.");
+      return;
+    }
+    if(!confirm(`Excluir todos os itens do Almoxarifado da competência ${competenciaAtualTexto()}?`)) return;
+    almoxarifadoAnexos.splice(idx, 1);
+    salvarAlmoxarifadoLocal();
+    renderTudo();
+  };
+
+  const renderAlmoxAnteriorV85 = window.renderAlmoxarifado;
+  window.renderAlmoxarifado = function(){
+    if(typeof renderAlmoxAnteriorV85 === "function"){
+      renderAlmoxAnteriorV85();
+    }
+
+    const tabela = document.getElementById("almoxTabela");
+    if(!tabela) return;
+
+    const reg = anexoAlmoxarifadoCompetencia();
+    const itens = reg && Array.isArray(reg.itens) ? reg.itens : [];
+    const busca = String(document.getElementById("almoxBusca")?.value || "").toLowerCase();
+    const filtro = document.getElementById("almoxFiltroMovimento")?.value || "";
+
+    let base = itens
+      .map((item, indiceOriginal)=>({item, indiceOriginal}))
+      .filter(obj => !busca || `${obj.item.codigo} ${obj.item.material}`.toLowerCase().includes(busca));
+
+    if(filtro === "comEntrada") base = base.filter(obj=>Number(obj.item.qtdEntrada||0)>0 || Number(obj.item.valorEntrada||0)>0);
+    if(filtro === "comSaida") base = base.filter(obj=>Number(obj.item.qtdSaida||0)>0 || Number(obj.item.valorSaida||0)>0);
+    if(filtro === "semMovimento") base = base.filter(obj=>!(Number(obj.item.qtdEntrada||0)>0 || Number(obj.item.valorEntrada||0)>0 || Number(obj.item.qtdSaida||0)>0 || Number(obj.item.valorSaida||0)>0));
+
+    tabela.innerHTML = base.length ? base.map(({item:i, indiceOriginal})=>`
+      <tr>
+        <td>${i.codigo || "-"}</td>
+        <td>${i.material || "-"}</td>
+        <td>${i.unidade || "-"}</td>
+        <td>${Number(i.estoqueAnterior || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+        <td>${moeda(almoxMoedaV85(i.valorAnterior))}</td>
+        <td>${Number(i.qtdEntrada || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+        <td>${moeda(almoxMoedaV85(i.valorEntrada))}</td>
+        <td>${Number(i.qtdSaida || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+        <td>${moeda(almoxMoedaV85(i.valorSaida))}</td>
+        <td>${Number(i.estoqueAtual || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+        <td>${moeda(almoxMoedaV85(i.valorEstoque))}</td>
+        <td>${(Number(i.qtdSaida||0)>0 || Number(i.valorSaida||0)>0) ? "Com saída" : ((Number(i.qtdEntrada||0)>0 || Number(i.valorEntrada||0)>0) ? "Com entrada" : "Sem movimento")}</td>
+        <td>
+          <div class="almox-actions">
+            <button data-edit-action onclick="editarItemAlmoxarifado(${indiceOriginal})">Editar</button>
+            <button data-edit-action class="danger" onclick="excluirItemAlmoxarifado(${indiceOriginal})">Excluir</button>
+          </div>
+        </td>
+      </tr>
+    `).join("") : `<tr><td colspan="13" class="empty">Nenhum item do Almoxarifado importado para esta competência.</td></tr>`;
+
+    const table = tabela.closest("table");
+    const headRow = table?.querySelector("thead tr");
+    if(headRow && !headRow.querySelector("[data-almox-acoes]")){
+      const th = document.createElement("th");
+      th.setAttribute("data-almox-acoes", "1");
+      th.textContent = "AÇÕES";
+      headRow.appendChild(th);
+    }
+
+    const titleActions = document.querySelector("#almoxarifado .title .actions-row, #almoxarifado .title-actions, #almoxarifado .actions-row");
+    if(titleActions && !document.getElementById("btnExcluirAlmoxCompetencia")){
+      const btn = document.createElement("button");
+      btn.id = "btnExcluirAlmoxCompetencia";
+      btn.className = "danger";
+      btn.setAttribute("data-edit-action", "1");
+      btn.textContent = "Excluir competência";
+      btn.onclick = excluirAlmoxarifadoCompetencia;
+      titleActions.appendChild(btn);
+    }
+  };
+
+  const renderTudoAnteriorV85 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV85();
+    try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render almox v85", e); }
   };
 })();
 
