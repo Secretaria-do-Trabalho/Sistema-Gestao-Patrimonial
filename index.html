@@ -2838,6 +2838,25 @@ img,svg,canvas{
   display:none!important;
 }
 
+
+/* v91 - Almoxarifado compartilhado no Supabase */
+.almox-db-badge{
+  display:inline-flex;
+  align-items:center;
+  gap:6px;
+  padding:8px 11px;
+  border-radius:999px;
+  background:#e8f8ee;
+  color:#04753b;
+  font-size:12px;
+  font-weight:900;
+  white-space:nowrap;
+}
+.almox-db-badge.off{
+  background:#fff4e6;
+  color:#c65300;
+}
+
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
@@ -12875,6 +12894,750 @@ function depAcumuladaTotalAteMesAnterior(){
     try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render almox v90", e); }
     try{ renderFechamentoAlmoxarifado(); }catch(e){ console.warn("Falha fechamento almox v90", e); }
   };
+})();
+
+</script>
+
+<script>
+
+(function(){
+  // v91 - Almoxarifado deixa de ser apenas local e passa a salvar/carregar do Supabase.
+  // Tabela usada: public.almoxarifado_mensal
+
+  let salvamentoAlmoxTimerV91 = null;
+  let carregandoAlmoxSupabaseV91 = false;
+  let almoxSupabaseDisponivelV91 = false;
+
+  const ENTRADAS_V91 = {
+    notaFiscal: "Nota fiscal",
+    devolucao: "Devolução",
+    doacao: "Doação",
+    inventario: "Inventário"
+  };
+  const SAIDAS_V91 = {
+    consumo: "Requisição / consumo",
+    baixa: "Baixa",
+    doacao: "Doação",
+    inventario: "Inventário"
+  };
+
+  function chaveAlmoxV91(mes=mesSelecionado, ano=anoSelecionado){
+    return `${ano}-${String(Number(mes)+1).padStart(2,"0")}`;
+  }
+
+  function parseChaveAlmoxV91(chave){
+    const m = String(chave || "").match(/^(\d{4})-(\d{2})$/);
+    if(!m) return {ano: anoSelecionado, mes: mesSelecionado};
+    return {ano: Number(m[1]), mes: Math.max(0, Number(m[2]) - 1)};
+  }
+
+  function moedaAlmoxV91(valor){
+    try{
+      if(typeof normalizarMoedaAlmoxV90 === "function") return normalizarMoedaAlmoxV90(valor);
+      if(typeof normalizarMoedaAlmoxV84 === "function") return normalizarMoedaAlmoxV84(valor);
+    }catch(e){}
+    if(valor === null || valor === undefined || valor === "") return 0;
+    if(typeof valor === "number") return Math.round(valor * 100) / 100;
+
+    let s = String(valor).trim().replace(/[R$\s]/g, "");
+    if(!s) return 0;
+
+    let n = 0;
+    if(s.includes(",")){
+      n = parseFloat(s.replace(/\./g, "").replace(",", "."));
+    }else if(s.includes(".")){
+      const partes = s.split(".");
+      if(partes.length === 2 && partes[1].length <= 2) n = parseFloat(s);
+      else n = parseFloat(s.replace(/\./g, ""));
+    }else{
+      n = parseFloat(s) || 0;
+      if(/^\d+$/.test(s)){
+        const deveVirarCentavos = s.length >= 6 || (s.length >= 5 && s.endsWith("00"));
+        if(deveVirarCentavos) n = n / 100;
+      }
+    }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function qtdAlmoxV91(valor){
+    if(valor === null || valor === undefined || valor === "") return 0;
+    if(typeof valor === "number") return Math.round(valor * 100) / 100;
+    let n = 0;
+    try{ n = parseNumeroBR(valor); }catch(e){ n = Number(String(valor).replace(",", ".")); }
+    if(!Number.isFinite(n)) n = 0;
+    return Math.round(n * 100) / 100;
+  }
+
+  function normalizarItemAlmoxV91(item){
+    const i = {...(item || {})};
+
+    i.codigo = String(i.codigo || "").trim();
+    i.material = String(i.material || "").trim();
+    i.unidade = String(i.unidade || "").trim();
+
+    i.estoqueAnterior = qtdAlmoxV91(i.estoqueAnterior);
+    i.qtdEntrada = qtdAlmoxV91(i.qtdEntrada);
+    i.qtdSaida = qtdAlmoxV91(i.qtdSaida);
+    i.estoqueAtual = qtdAlmoxV91(i.estoqueAtual);
+
+    i.valorAnterior = moedaAlmoxV91(i.valorAnterior);
+    i.valorEntrada = moedaAlmoxV91(i.valorEntrada);
+    i.valorSaida = moedaAlmoxV91(i.valorSaida);
+    i.valorEstoque = moedaAlmoxV91(i.valorEstoque);
+
+    if((i.qtdEntrada > 0 || i.valorEntrada > 0) && !i.tipoEntrada) i.tipoEntrada = "notaFiscal";
+    if((i.qtdSaida > 0 || i.valorSaida > 0) && !i.tipoSaida) i.tipoSaida = "consumo";
+
+    if(!(i.qtdEntrada > 0 || i.valorEntrada > 0)) i.tipoEntrada = i.tipoEntrada || "";
+    if(!(i.qtdSaida > 0 || i.valorSaida > 0)) i.tipoSaida = i.tipoSaida || "";
+
+    return i;
+  }
+
+  function calcularResumoAlmoxV91(reg){
+    const r = {
+      quantidadeItens:0,
+      saldoAnterior:0,
+      entradaNotaFiscal:0,
+      entradaDevolucao:0,
+      entradaDoacao:0,
+      entradaInventario:0,
+      entradas:0,
+      saidaBaixa:0,
+      saidaDoacao:0,
+      consumo:0,
+      saidaInventario:0,
+      saidas:0,
+      valorEstoque:0,
+      saldoFinal:0,
+      saldoFormula:0,
+      ajustes:0
+    };
+
+    if(!reg || !Array.isArray(reg.itens)) return r;
+
+    const itens = reg.itens.map(normalizarItemAlmoxV91);
+    r.quantidadeItens = itens.length;
+
+    itens.forEach(i=>{
+      r.saldoAnterior += Number(i.valorAnterior || 0);
+      r.valorEstoque += Number(i.valorEstoque || 0);
+      r.saldoFinal += Number(i.valorEstoque || 0);
+
+      if(i.valorEntrada || i.qtdEntrada){
+        const tipo = i.tipoEntrada || "notaFiscal";
+        if(tipo === "devolucao") r.entradaDevolucao += Number(i.valorEntrada || 0);
+        else if(tipo === "doacao") r.entradaDoacao += Number(i.valorEntrada || 0);
+        else if(tipo === "inventario") r.entradaInventario += Number(i.valorEntrada || 0);
+        else r.entradaNotaFiscal += Number(i.valorEntrada || 0);
+      }
+
+      if(i.valorSaida || i.qtdSaida){
+        const tipo = i.tipoSaida || "consumo";
+        if(tipo === "baixa") r.saidaBaixa += Number(i.valorSaida || 0);
+        else if(tipo === "doacao") r.saidaDoacao += Number(i.valorSaida || 0);
+        else if(tipo === "inventario") r.saidaInventario += Number(i.valorSaida || 0);
+        else r.consumo += Number(i.valorSaida || 0);
+      }
+    });
+
+    r.entradas = r.entradaNotaFiscal + r.entradaDevolucao + r.entradaDoacao + r.entradaInventario;
+    r.saidas = r.saidaBaixa + r.saidaDoacao + r.consumo + r.saidaInventario;
+    r.saldoFormula = r.saldoAnterior + r.entradas - r.saidas;
+    r.ajustes = r.saldoFinal - r.saldoFormula;
+
+    Object.keys(r).forEach(k=>{
+      if(typeof r[k] === "number") r[k] = Math.round(r[k] * 100) / 100;
+    });
+
+    return r;
+  }
+
+  function normalizarRegistroAlmoxV91(reg){
+    const chave = reg?.chave || reg?.competencia || chaveAlmoxV91(reg?.mes ?? mesSelecionado, reg?.ano ?? anoSelecionado);
+    const partes = parseChaveAlmoxV91(chave);
+
+    const novo = {
+      ...(reg || {}),
+      chave,
+      competencia: reg?.competenciaTexto || reg?.competencia_display || competenciaTexto(partes.mes, partes.ano),
+      ano: Number(reg?.ano ?? partes.ano),
+      mes: Number(reg?.mes ?? partes.mes),
+      nomeArquivo: reg?.nomeArquivo || reg?.nome_arquivo || "",
+      responsavel: reg?.responsavel || "",
+      observacoes: reg?.observacoes || "",
+      status: reg?.status || "Em conferência",
+      itens: Array.isArray(reg?.itens) ? reg.itens.map(normalizarItemAlmoxV91) : []
+    };
+
+    const resumo = calcularResumoAlmoxV91(novo);
+    Object.assign(novo, resumo);
+    return novo;
+  }
+
+  function salvarAlmoxLocalApenasV91(){
+    localStorage.setItem("almoxarifadoSGP_v1", JSON.stringify(almoxarifadoAnexos || []));
+  }
+
+  window.carregarAlmoxarifado = function(){
+    const salvos = localStorage.getItem("almoxarifadoSGP_v1");
+    almoxarifadoAnexos = salvos ? JSON.parse(salvos) : [];
+    almoxarifadoAnexos = (almoxarifadoAnexos || []).map(normalizarRegistroAlmoxV91);
+  };
+
+  window.salvarAlmoxarifadoLocal = function(){
+    salvarAlmoxLocalApenasV91();
+    agendarSalvarAlmoxAtualSupabaseV91();
+  };
+
+  window.anexoAlmoxarifadoCompetencia = function(mes=mesSelecionado, ano=anoSelecionado){
+    const chave = chaveAlmoxV91(mes, ano);
+    return (almoxarifadoAnexos || []).find(a=>a.chave === chave) || null;
+  };
+
+  function getRegAlmoxEditV91(){
+    carregarAlmoxarifado();
+    const chave = chaveAlmoxV91();
+    let idx = almoxarifadoAnexos.findIndex(a=>a.chave === chave);
+    if(idx < 0){
+      almoxarifadoAnexos.push(normalizarRegistroAlmoxV91({
+        chave,
+        competencia: competenciaAtualTexto(),
+        ano: anoSelecionado,
+        mes: mesSelecionado,
+        nomeArquivo: "Edição manual",
+        importadoEm: new Date().toISOString(),
+        itens: []
+      }));
+      idx = almoxarifadoAnexos.length - 1;
+    }
+    almoxarifadoAnexos[idx] = normalizarRegistroAlmoxV91(almoxarifadoAnexos[idx]);
+    return {reg: almoxarifadoAnexos[idx], idx};
+  }
+
+  function payloadAlmoxSupabaseV91(reg){
+    const normal = normalizarRegistroAlmoxV91(reg);
+    const resumo = calcularResumoAlmoxV91(normal);
+    return {
+      competencia: normal.chave,
+      ano: Number(normal.ano),
+      mes: Number(normal.mes),
+      nome_arquivo: normal.nomeArquivo || normal.nome_arquivo || null,
+      responsavel: normal.responsavel || null,
+      observacoes: normal.observacoes || null,
+      itens: normal.itens || [],
+      resumo,
+      status: normal.status || "Em conferência",
+      atualizado_por: usuarioAtual?.auth_user_id || null
+    };
+  }
+
+  function mapearAlmoxSupabaseV91(row){
+    const partes = parseChaveAlmoxV91(row.competencia);
+    const reg = {
+      supabaseId: row.id,
+      chave: row.competencia,
+      competencia: competenciaTexto(Number(row.mes ?? partes.mes), Number(row.ano ?? partes.ano)),
+      ano: Number(row.ano ?? partes.ano),
+      mes: Number(row.mes ?? partes.mes),
+      nomeArquivo: row.nome_arquivo || "",
+      responsavel: row.responsavel || "",
+      observacoes: row.observacoes || "",
+      status: row.status || "Em conferência",
+      itens: Array.isArray(row.itens) ? row.itens : [],
+      resumo: row.resumo || {},
+      importadoEm: row.criado_em || "",
+      atualizadoEm: row.atualizado_em || ""
+    };
+
+    const normal = normalizarRegistroAlmoxV91(reg);
+    normal.supabaseId = row.id;
+    return normal;
+  }
+
+  async function sessaoSupabaseAlmoxV91(){
+    const { data: { session }, error } = await supabaseClient.auth.getSession();
+    if(error) throw error;
+    return session;
+  }
+
+  window.salvarAlmoxarifadoSupabaseV91 = async function(reg){
+    const session = await sessaoSupabaseAlmoxV91();
+    if(!session?.user){
+      almoxSupabaseDisponivelV91 = false;
+      setStatusBanco?.("Banco: sem login para salvar Almoxarifado", "off");
+      return null;
+    }
+
+    const payload = payloadAlmoxSupabaseV91(reg);
+
+    const { data, error } = await supabaseClient
+      .from("almoxarifado_mensal")
+      .upsert(payload, { onConflict: "competencia" })
+      .select()
+      .single();
+
+    if(error) throw error;
+
+    almoxSupabaseDisponivelV91 = true;
+    setStatusBanco?.("Banco: conectado", "ok");
+    return data;
+  };
+
+  function agendarSalvarAlmoxAtualSupabaseV91(){
+    if(salvamentoAlmoxTimerV91) clearTimeout(salvamentoAlmoxTimerV91);
+    salvamentoAlmoxTimerV91 = setTimeout(async ()=>{
+      try{
+        const reg = anexoAlmoxarifadoCompetencia();
+        if(reg) await salvarAlmoxarifadoSupabaseV91(reg);
+      }catch(e){
+        console.warn("Almoxarifado salvo localmente, mas não foi para o Supabase:", e);
+        setStatusBanco?.("Banco: erro ao salvar Almoxarifado", "off");
+      }
+    }, 700);
+  }
+
+  window.carregarAlmoxarifadoSupabaseV91 = async function(){
+    if(carregandoAlmoxSupabaseV91) return;
+    carregandoAlmoxSupabaseV91 = true;
+
+    try{
+      const session = await sessaoSupabaseAlmoxV91();
+      if(!session?.user){
+        carregarAlmoxarifado();
+        return;
+      }
+
+      const locaisRaw = localStorage.getItem("almoxarifadoSGP_v1");
+      const locais = locaisRaw ? JSON.parse(locaisRaw).map(normalizarRegistroAlmoxV91) : [];
+
+      const { data, error } = await supabaseClient
+        .from("almoxarifado_mensal")
+        .select("*")
+        .order("ano", { ascending:true })
+        .order("mes", { ascending:true });
+
+      if(error) throw error;
+
+      const mapa = new Map();
+
+      // Banco é a fonte principal.
+      (data || []).map(mapearAlmoxSupabaseV91).forEach(reg=>{
+        mapa.set(reg.chave, reg);
+      });
+
+      // Migra dados locais que ainda não existem no banco.
+      for(const local of locais){
+        const regLocal = normalizarRegistroAlmoxV91(local);
+        if(!mapa.has(regLocal.chave) && Array.isArray(regLocal.itens) && regLocal.itens.length){
+          mapa.set(regLocal.chave, regLocal);
+          try{ await salvarAlmoxarifadoSupabaseV91(regLocal); }catch(e){ console.warn("Falha ao migrar Almox local:", e); }
+        }
+      }
+
+      almoxarifadoAnexos = Array.from(mapa.values()).sort((a,b)=>(a.ano-b.ano) || (a.mes-b.mes));
+      salvarAlmoxLocalApenasV91();
+      almoxSupabaseDisponivelV91 = true;
+      setStatusBanco?.("Banco: conectado", "ok");
+    }catch(e){
+      console.warn("Não foi possível carregar Almoxarifado do Supabase:", e);
+      carregarAlmoxarifado();
+      almoxSupabaseDisponivelV91 = false;
+      setStatusBanco?.("Banco: erro/RLS Almoxarifado", "off");
+    }finally{
+      carregandoAlmoxSupabaseV91 = false;
+    }
+  };
+
+  window.resumoAlmoxCompetencia = function(mes=mesSelecionado, ano=anoSelecionado){
+    const reg = anexoAlmoxarifadoCompetencia(mes, ano);
+    return calcularResumoAlmoxV91(reg);
+  };
+
+  window.calcularFechamentoAlmoxarifado = function(){
+    return resumoAlmoxCompetencia(mesSelecionado, anoSelecionado);
+  };
+
+  window.renderFechamentoAlmoxarifado = function(){
+    const dados = calcularFechamentoAlmoxarifado();
+    const anterior = competenciaAnterior();
+    const dataAnterior = dataPosicaoCompetencia(anterior.mes, anterior.ano);
+    const dataAtual = dataPosicaoCompetencia();
+    const setTxt = (id, valor)=>{ const el=document.getElementById(id); if(el) el.textContent = valor; };
+
+    setTxt("almoxFechLabelSaldoAnterior", `Saldo anterior em ${dataAnterior}`);
+    setTxt("almoxFechLabelSaldoFinal", `Saldo final em ${dataAtual}`);
+
+    setTxt("almoxFechSaldoAnterior", moeda(dados.saldoAnterior));
+    setTxt("almoxFechEntradaNF", moeda(dados.entradaNotaFiscal));
+    setTxt("almoxFechEntradaDevolucao", moeda(dados.entradaDevolucao));
+    setTxt("almoxFechEntradaDoacao", moeda(dados.entradaDoacao));
+    setTxt("almoxFechEntradaInventario", moeda(dados.entradaInventario));
+    setTxt("almoxFechEntradas", moeda(dados.entradas));
+    setTxt("almoxFechSaidaBaixa", "-" + moeda(dados.saidaBaixa));
+    setTxt("almoxFechSaidaDoacao", "-" + moeda(dados.saidaDoacao));
+    setTxt("almoxFechConsumo", "-" + moeda(dados.consumo));
+    setTxt("almoxFechSaidaInventario", "-" + moeda(dados.saidaInventario));
+    setTxt("almoxFechAjustes", (dados.ajustes < 0 ? "-" : "") + moeda(Math.abs(dados.ajustes)));
+    setTxt("almoxFechSaldoFinal", moeda(dados.saldoFinal));
+  };
+
+  window.renderAlmoxarifado = function(){
+    const reg = anexoAlmoxarifadoCompetencia();
+    const itens = reg && Array.isArray(reg.itens) ? reg.itens.map(normalizarItemAlmoxV91) : [];
+    const busca = String(document.getElementById("almoxBusca")?.value || "").toLowerCase();
+    const filtro = document.getElementById("almoxFiltroMovimento")?.value || "";
+
+    let base = itens.map((item, indiceOriginal)=>({item, indiceOriginal}))
+      .filter(obj => !busca || `${obj.item.codigo || ""} ${obj.item.material || ""}`.toLowerCase().includes(busca));
+
+    if(filtro === "comEntrada") base = base.filter(obj=>Number(obj.item.qtdEntrada||0)>0 || Number(obj.item.valorEntrada||0)>0);
+    if(filtro === "comSaida") base = base.filter(obj=>Number(obj.item.qtdSaida||0)>0 || Number(obj.item.valorSaida||0)>0);
+    if(filtro === "semMovimento") base = base.filter(obj=>!(Number(obj.item.qtdEntrada||0)>0 || Number(obj.item.valorEntrada||0)>0 || Number(obj.item.qtdSaida||0)>0 || Number(obj.item.valorSaida||0)>0));
+
+    const tabela = document.getElementById("almoxTabela");
+    const table = tabela?.closest("table");
+    const headRow = table?.querySelector("thead tr");
+
+    if(headRow){
+      headRow.innerHTML = `
+        <th>Cód.</th>
+        <th>Material</th>
+        <th>Unidade</th>
+        <th>Est. Ant.</th>
+        <th>Vlr. Ant.</th>
+        <th>Qtd Ent.</th>
+        <th>Vlr Ent.</th>
+        <th>Qtd Saíd.</th>
+        <th>Vlr Saíd.</th>
+        <th>Est. Atual</th>
+        <th>Vlr. Estoque</th>
+        <th>Situação</th>
+        <th>Ações</th>
+      `;
+    }
+
+    if(tabela){
+      tabela.innerHTML = base.length ? base.map(({item:i, indiceOriginal})=>`
+        <tr>
+          <td>${i.codigo || "-"}</td>
+          <td>${i.material || "-"}</td>
+          <td>${i.unidade || "-"}</td>
+          <td>${Number(i.estoqueAnterior || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(i.valorAnterior || 0)}</td>
+          <td>${Number(i.qtdEntrada || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(i.valorEntrada || 0)}</td>
+          <td>${Number(i.qtdSaida || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(i.valorSaida || 0)}</td>
+          <td>${Number(i.estoqueAtual || 0).toLocaleString("pt-BR", {maximumFractionDigits:2})}</td>
+          <td>${moeda(i.valorEstoque || 0)}</td>
+          <td>${(Number(i.qtdSaida||0)>0 || Number(i.valorSaida||0)>0) ? "Com saída" : ((Number(i.qtdEntrada||0)>0 || Number(i.valorEntrada||0)>0) ? "Com entrada" : "Sem movimento")}</td>
+          <td>
+            <div class="almox-actions">
+              <button data-edit-action onclick="editarItemAlmoxarifado(${indiceOriginal})">Editar</button>
+              <button data-edit-action class="danger" onclick="excluirItemAlmoxarifado(${indiceOriginal})">Excluir</button>
+            </div>
+          </td>
+        </tr>
+      `).join("") : `<tr><td colspan="13" class="empty">Nenhum item do Almoxarifado importado para esta competência.</td></tr>`;
+    }
+
+    const resumo = resumoAlmoxCompetencia();
+    const setTxt = (id, valor)=>{ const el=document.getElementById(id); if(el) el.textContent = valor; };
+
+    setTxt("almoxTotalItens", String(resumo.quantidadeItens || 0));
+    setTxt("almoxTotalEstoque", moeda(resumo.valorEstoque || resumo.saldoFinal || 0));
+    setTxt("almoxTotalEntradas", moeda(resumo.entradas || 0));
+    setTxt("almoxTotalSaidas", moeda(resumo.saidas || resumo.consumo || 0));
+
+    const title = document.querySelector("#almoxarifado .title > div");
+    if(title && !document.getElementById("almoxDbBadgeV91")){
+      const badge = document.createElement("span");
+      badge.id = "almoxDbBadgeV91";
+      badge.className = "almox-db-badge";
+      badge.textContent = "Base compartilhada";
+      title.appendChild(badge);
+    }
+    const badge = document.getElementById("almoxDbBadgeV91");
+    if(badge){
+      badge.classList.toggle("off", !almoxSupabaseDisponivelV91);
+      badge.textContent = almoxSupabaseDisponivelV91 ? "Base compartilhada" : "Local até conectar";
+    }
+
+    try{ renderFechamentoAlmoxarifado(); }catch(e){}
+  };
+
+  window.importarTemplateAlmoxarifado = async function(event){
+    const file = event?.target?.files?.[0];
+    if(!file) return;
+
+    try{
+      const data = await file.arrayBuffer();
+      let rows = [];
+
+      if(file.name.toLowerCase().endsWith(".csv")){
+        const text = new TextDecoder("utf-8").decode(data);
+        const wb = XLSX.read(text, {type:"string"});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+      }else{
+        const wb = XLSX.read(data, {type:"array", cellDates:false});
+        const ws = wb.Sheets[wb.SheetNames[0]];
+        rows = XLSX.utils.sheet_to_json(ws, {defval:"", raw:false});
+      }
+
+      const itens = [];
+      rows.forEach(row=>{
+        const nrow = {};
+        Object.keys(row).forEach(k=>nrow[normalizarCabecalho(k)] = row[k]);
+
+        const codigo = String(nrow.codigo || nrow.cod || "").trim();
+        const material = String(nrow.material || nrow.descricao || nrow.item || "").trim();
+
+        if(!codigo && !material) return;
+        if(codigo.toUpperCase()==="OBS") return;
+        if(material.toUpperCase().includes("EXEMPLO DE MATERIAL")) return;
+        if(material.toUpperCase().includes("AS COLUNAS FECHAMENTO")) return;
+
+        itens.push(normalizarItemAlmoxV91({
+          codigo,
+          material,
+          unidade: nrow.unidade || nrow.und || "",
+          estoqueAnterior: nrow.estoque_anterior || 0,
+          valorAnterior: nrow.valor_anterior || 0,
+          qtdEntrada: nrow.quantidade_entrada || nrow.qtd_entrada || 0,
+          valorEntrada: nrow.valor_entrada || 0,
+          qtdSaida: nrow.quantidade_saida || nrow.quantidade_saida_ || nrow.qtd_saida || 0,
+          valorSaida: nrow.valor_saida || 0,
+          estoqueAtual: nrow.estoque_atual || 0,
+          valorEstoque: nrow.valor_estoque || nrow.vlr_estoque || 0,
+          competencia: nrow.competencia || competenciaAtualTexto()
+        }));
+      });
+
+      const chave = chaveAlmoxV91();
+      const registro = normalizarRegistroAlmoxV91({
+        chave,
+        mes: mesSelecionado,
+        ano: anoSelecionado,
+        nomeArquivo: file.name,
+        importadoEm: new Date().toISOString(),
+        itens
+      });
+
+      carregarAlmoxarifado();
+      const idx = almoxarifadoAnexos.findIndex(a=>a.chave === chave);
+      if(idx >= 0) almoxarifadoAnexos[idx] = registro;
+      else almoxarifadoAnexos.push(registro);
+
+      salvarAlmoxLocalApenasV91();
+      await salvarAlmoxarifadoSupabaseV91(registro);
+
+      event.target.value = "";
+      await carregarAlmoxarifadoSupabaseV91();
+      renderTudo();
+
+      const resumo = resumoAlmoxCompetencia();
+      alert(`Almoxarifado importado para ${competenciaAtualTexto()} e salvo na base compartilhada.\nItens: ${resumo.quantidadeItens}.\nValor em estoque: ${moeda(resumo.valorEstoque)}.`);
+    }catch(e){
+      console.error(e);
+      alert("Erro ao importar/salvar Almoxarifado: " + (e.message || e));
+    }
+  };
+
+  window.editarItemAlmoxarifado = function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+
+    const achado = getRegAlmoxEditV91();
+    const idx = Number(indice);
+    if(!achado.reg.itens[idx]){
+      alert("Item do Almoxarifado não encontrado.");
+      return;
+    }
+    const i = normalizarItemAlmoxV91(achado.reg.itens[idx]);
+
+    const optEntrada = Object.entries(ENTRADAS_V91).map(([v,t])=>`<option value="${v}" ${i.tipoEntrada===v?"selected":""}>${t}</option>`).join("");
+    const optSaida = Object.entries(SAIDAS_V91).map(([v,t])=>`<option value="${v}" ${i.tipoSaida===v?"selected":""}>${t}</option>`).join("");
+
+    const htmlForm = `
+      <div class="modal-card large">
+        <button class="x" type="button" onclick="fecharModalAlmoxarifado()">×</button>
+        <h2>Editar item do Almoxarifado</h2>
+        <p style="color:var(--muted);margin-top:-6px">Competência ${competenciaAtualTexto()} • salva na base compartilhada</p>
+        <div class="almox-edit-grid">
+          <label><span>Código</span><input id="almoxEditCodigo" value="${String(i.codigo || "").replace(/"/g,"&quot;")}"></label>
+          <label><span>Unidade</span><input id="almoxEditUnidade" value="${String(i.unidade || "").replace(/"/g,"&quot;")}"></label>
+          <label class="almox-edit-full"><span>Material</span><textarea id="almoxEditMaterial" rows="3">${String(i.material || "")}</textarea></label>
+          <label><span>Estoque anterior</span><input id="almoxEditEstAnt" value="${i.estoqueAnterior ?? 0}"></label>
+          <label><span>Valor anterior</span><input id="almoxEditVlrAnt" value="${moeda(i.valorAnterior || 0)}"></label>
+          <label><span>Qtd entrada</span><input id="almoxEditQtdEnt" value="${i.qtdEntrada ?? 0}"></label>
+          <label><span>Valor entrada</span><input id="almoxEditVlrEnt" value="${moeda(i.valorEntrada || 0)}"></label>
+          <label><span>Tipo de entrada</span><select id="almoxEditTipoEntrada"><option value="">Sem entrada</option>${optEntrada}</select></label>
+          <label><span>Qtd saída</span><input id="almoxEditQtdSai" value="${i.qtdSaida ?? 0}"></label>
+          <label><span>Valor saída</span><input id="almoxEditVlrSai" value="${moeda(i.valorSaida || 0)}"></label>
+          <label><span>Tipo de saída</span><select id="almoxEditTipoSaida"><option value="">Sem saída</option>${optSaida}</select></label>
+          <label><span>Estoque atual</span><input id="almoxEditEstAtual" value="${i.estoqueAtual ?? 0}"></label>
+          <label><span>Valor estoque</span><input id="almoxEditVlrEstoque" value="${moeda(i.valorEstoque || 0)}"></label>
+        </div>
+        <div class="form-actions" style="margin-top:18px">
+          <button type="button" onclick="fecharModalAlmoxarifado()">Cancelar</button>
+          <button class="primary" type="button" onclick="salvarEdicaoItemAlmoxarifado(${idx})">Salvar alteração</button>
+        </div>
+      </div>
+    `;
+
+    let modal = document.getElementById("modal");
+    if(!modal){
+      modal = document.createElement("div");
+      modal.id = "modal";
+      modal.className = "modal hidden";
+      document.body.appendChild(modal);
+    }
+    modal.innerHTML = htmlForm;
+    modal.classList.remove("hidden");
+  };
+
+  window.fecharModalAlmoxarifado = function(){
+    const modal = document.getElementById("modal");
+    if(modal){
+      modal.classList.add("hidden");
+      modal.innerHTML = "";
+    }
+  };
+
+  window.salvarEdicaoItemAlmoxarifado = async function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+
+    try{
+      const achado = getRegAlmoxEditV91();
+      const idx = Number(indice);
+      if(!achado.reg.itens[idx]){
+        alert("Item do Almoxarifado não encontrado para salvar.");
+        return;
+      }
+
+      const qtdEnt = qtdAlmoxV91(document.getElementById("almoxEditQtdEnt")?.value || 0);
+      const vlrEnt = moedaAlmoxV91(document.getElementById("almoxEditVlrEnt")?.value || 0);
+      const qtdSai = qtdAlmoxV91(document.getElementById("almoxEditQtdSai")?.value || 0);
+      const vlrSai = moedaAlmoxV91(document.getElementById("almoxEditVlrSai")?.value || 0);
+
+      let tipoEntrada = document.getElementById("almoxEditTipoEntrada")?.value || "";
+      let tipoSaida = document.getElementById("almoxEditTipoSaida")?.value || "";
+      if((qtdEnt > 0 || vlrEnt > 0) && !tipoEntrada) tipoEntrada = "notaFiscal";
+      if((qtdSai > 0 || vlrSai > 0) && !tipoSaida) tipoSaida = "consumo";
+
+      achado.reg.itens[idx] = normalizarItemAlmoxV91({
+        ...achado.reg.itens[idx],
+        codigo: document.getElementById("almoxEditCodigo")?.value?.trim() || "",
+        material: document.getElementById("almoxEditMaterial")?.value?.trim() || "",
+        unidade: document.getElementById("almoxEditUnidade")?.value?.trim() || "",
+        estoqueAnterior: qtdAlmoxV91(document.getElementById("almoxEditEstAnt")?.value || 0),
+        valorAnterior: moedaAlmoxV91(document.getElementById("almoxEditVlrAnt")?.value || 0),
+        qtdEntrada: qtdEnt,
+        valorEntrada: vlrEnt,
+        tipoEntrada,
+        qtdSaida: qtdSai,
+        valorSaida: vlrSai,
+        tipoSaida,
+        estoqueAtual: qtdAlmoxV91(document.getElementById("almoxEditEstAtual")?.value || 0),
+        valorEstoque: moedaAlmoxV91(document.getElementById("almoxEditVlrEstoque")?.value || 0),
+        competencia: competenciaAtualTexto()
+      });
+
+      achado.reg = normalizarRegistroAlmoxV91(achado.reg);
+      almoxarifadoAnexos[achado.idx] = achado.reg;
+      salvarAlmoxLocalApenasV91();
+      await salvarAlmoxarifadoSupabaseV91(achado.reg);
+
+      fecharModalAlmoxarifado();
+      await carregarAlmoxarifadoSupabaseV91();
+
+      if(typeof navegar === "function") navegar("almoxarifado");
+      else if(typeof showView === "function") showView("almoxarifado");
+      renderTudo();
+    }catch(e){
+      console.error("Erro ao salvar item do Almoxarifado v91", e);
+      alert("Erro ao salvar alteração do Almoxarifado na base: " + (e.message || e));
+    }
+  };
+
+  window.excluirItemAlmoxarifado = async function(indice){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    const achado = getRegAlmoxEditV91();
+    const idx = Number(indice);
+    if(!achado?.reg?.itens?.[idx]){
+      alert("Item do Almoxarifado não encontrado.");
+      return;
+    }
+
+    const nome = achado.reg.itens[idx].material || achado.reg.itens[idx].codigo || "item";
+    if(!confirm(`Excluir o item do Almoxarifado?\n\n${nome}`)) return;
+
+    achado.reg.itens.splice(idx, 1);
+    achado.reg = normalizarRegistroAlmoxV91(achado.reg);
+    almoxarifadoAnexos[achado.idx] = achado.reg;
+    salvarAlmoxLocalApenasV91();
+    await salvarAlmoxarifadoSupabaseV91(achado.reg);
+    await carregarAlmoxarifadoSupabaseV91();
+    renderTudo();
+  };
+
+  window.excluirAlmoxarifadoCompetencia = async function(){
+    if(typeof podeEditar === "function" && !podeEditar()){
+      avisarSemPermissao();
+      return;
+    }
+    const chave = chaveAlmoxV91();
+    if(!confirm(`Excluir todos os itens do Almoxarifado da competência ${competenciaAtualTexto()}?`)) return;
+
+    carregarAlmoxarifado();
+    almoxarifadoAnexos = (almoxarifadoAnexos || []).filter(a=>a.chave !== chave);
+    salvarAlmoxLocalApenasV91();
+
+    try{
+      const { error } = await supabaseClient
+        .from("almoxarifado_mensal")
+        .delete()
+        .eq("competencia", chave);
+      if(error) throw error;
+    }catch(e){
+      console.warn("Erro ao excluir Almoxarifado do Supabase:", e);
+      alert("Excluiu localmente, mas houve erro ao excluir na base: " + (e.message || e));
+    }
+
+    await carregarAlmoxarifadoSupabaseV91();
+    renderTudo();
+  };
+
+  window.limparAnexoAlmoxarifado = window.excluirAlmoxarifadoCompetencia;
+
+  const sincronizarAnteriorV91 = window.sincronizarDoSupabase;
+  window.sincronizarDoSupabase = async function(preservarLocal=false){
+    if(typeof sincronizarAnteriorV91 === "function"){
+      await sincronizarAnteriorV91(preservarLocal);
+    }
+    await carregarAlmoxarifadoSupabaseV91();
+  };
+
+  const renderTudoAnteriorV91 = window.renderTudo;
+  window.renderTudo = function(){
+    renderTudoAnteriorV91();
+    try{ renderAlmoxarifado(); }catch(e){ console.warn("Falha render Almox v91", e); }
+    try{ renderFechamentoAlmoxarifado(); }catch(e){ console.warn("Falha fechamento Almox v91", e); }
+  };
+
+  // Tenta carregar ao abrir, e carrega de verdade após login/sincronização.
+  setTimeout(()=>{ try{ carregarAlmoxarifado(); renderAlmoxarifado(); }catch(e){} }, 300);
 })();
 
 </script>
